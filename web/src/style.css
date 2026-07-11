@@ -250,6 +250,29 @@ sup.fn a:hover {
   line-height: 1.45;
 }
 
+.nn-figure {
+  margin: 0.85rem 0 0.35rem;
+  padding: 0;
+}
+
+.nn-figure svg {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fafafa;
+}
+
+.nn-figure figcaption {
+  margin: 0.5rem 0 0;
+  max-width: 40rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
 .controls {
   display: grid;
   gap: 0;

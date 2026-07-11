@@ -57,12 +57,30 @@ app.innerHTML = `
       </li>
       <li>
         <p>
-          So write a reconstruction objective over free factors
-          $U\\in\\mathbb{R}^{n\\times k}$, $\\sigma\\in\\mathbb{R}^{k}$, $V\\in\\mathbb{R}^{n\\times k}$:
+          So write a reconstruction objective over factors
+          $U\\in\\mathbb{R}^{n\\times k}$, $\\sigma\\in\\mathbb{R}^{k}_{\\ge 0}$, $V\\in\\mathbb{R}^{n\\times k}$:
         </p>
         <div class="math">
           $$L_{\\mathrm{recon}} = \\bigl\\|A - U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}\\bigr\\|_F^{2}$$
         </div>
+        <p>
+          Singular values are nonnegative, so we do not treat $\\sigma$ itself as a free
+          Euclidean parameter. Instead we store an unconstrained vector
+          $\\mathrm{raw}\\in\\mathbb{R}^{k}$ and set
+        </p>
+        <div class="math">
+          $$\\sigma_j = \\mathrm{softplus}(\\mathrm{raw}_j)
+            = \\ln\\bigl(1+e^{\\mathrm{raw}_j}\\bigr) \\gt 0.$$
+        </div>
+        <p class="theory-note">
+          <a href="https://en.wikipedia.org/wiki/Softplus" target="_blank" rel="noopener noreferrer">Softplus</a>
+          is a smooth map $\\mathbb{R}\\to(0,\\infty)$: large negative inputs become tiny positives,
+          large positive inputs stay roughly unchanged. Gradients flow through it into
+          $\\mathrm{raw}$. The trainable factors are then $U$, $\\mathrm{raw}$, and $V$;
+          displayed $\\sigma$ bars are $\\mathrm{softplus}(\\mathrm{raw})$.
+          (Why not $|\\mathrm{raw}|$? See
+          <a href="#appendix-softplus">Why softplus</a>.)
+        </p>
         <p class="theory-note">
           Orthogonality is <strong>not</strong> required for a best low-rank fit — many factorizations
           can realize the same $\\hat A_k$. Minimizing $L_{\\mathrm{recon}}$ alone targets that
@@ -70,6 +88,99 @@ app.innerHTML = `
           By Eckart–Young, the best attainable value is the constant
           $\\|A - \\hat A_k\\|_F^{2}$ from truncated SVD (the dashed floor on the loss chart).
         </p>
+        <figure class="nn-figure" aria-label="Rank-k factorization as a linear network">
+          <svg viewBox="0 0 640 250" role="img" xmlns="http://www.w3.org/2000/svg">
+            <title>Gradient-descent SVD as a three-layer linear network</title>
+            <desc>
+              Input vector x in R^n goes through V transpose into a k-dimensional bottleneck,
+              is scaled by singular values sigma, then through U to produce A-hat x.
+              The loss compares A-hat x to A x.
+            </desc>
+            <defs>
+              <marker id="nnArrow" viewBox="0 0 10 10" refX="9" refY="5"
+                markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 1.5 L 9 5 L 0 8.5 Z" fill="#6b6b6b"/>
+              </marker>
+            </defs>
+
+            <rect x="24" y="52" width="88" height="168" rx="10" fill="#f4f7fa" stroke="#c5d4e0"/>
+            <rect x="236" y="74" width="88" height="124" rx="10" fill="#fbf6eb" stroke="#e0d0a8"/>
+            <rect x="448" y="52" width="88" height="168" rx="10" fill="#f4f7fa" stroke="#c5d4e0"/>
+
+            <text x="68" y="38" text-anchor="middle" fill="#6b6b6b"
+              font-family="DM Sans, system-ui, sans-serif" font-size="12" font-weight="600">input x</text>
+            <text x="280" y="38" text-anchor="middle" fill="#6b6b6b"
+              font-family="DM Sans, system-ui, sans-serif" font-size="12" font-weight="600">bottleneck</text>
+            <text x="492" y="38" text-anchor="middle" fill="#6b6b6b"
+              font-family="DM Sans, system-ui, sans-serif" font-size="12" font-weight="600">output Âx</text>
+
+            <circle cx="68" cy="80" r="11" fill="#fff" stroke="#0072b2" stroke-width="2"/>
+            <circle cx="68" cy="114" r="11" fill="#fff" stroke="#0072b2" stroke-width="2"/>
+            <circle cx="68" cy="148" r="11" fill="#fff" stroke="#0072b2" stroke-width="2"/>
+            <text x="68" y="174" text-anchor="middle" fill="#6b6b6b"
+              font-family="IBM Plex Mono, monospace" font-size="14">⋮</text>
+            <circle cx="68" cy="196" r="11" fill="#fff" stroke="#0072b2" stroke-width="2"/>
+            <text x="68" y="238" text-anchor="middle" fill="#2d2d2d"
+              font-family="DM Sans, system-ui, sans-serif" font-size="13">n units</text>
+
+            <circle cx="280" cy="104" r="14" fill="#fff" stroke="#e69f00" stroke-width="2.2"/>
+            <circle cx="280" cy="148" r="14" fill="#fff" stroke="#e69f00" stroke-width="2.2"/>
+            <circle cx="280" cy="192" r="14" fill="#fff" stroke="#e69f00" stroke-width="2.2"/>
+            <text x="280" y="108.5" text-anchor="middle" fill="#2d2d2d"
+              font-family="IBM Plex Mono, monospace" font-size="11" font-weight="500">1</text>
+            <text x="280" y="152.5" text-anchor="middle" fill="#2d2d2d"
+              font-family="IBM Plex Mono, monospace" font-size="11" font-weight="500">2</text>
+            <text x="280" y="196.5" text-anchor="middle" fill="#2d2d2d"
+              font-family="IBM Plex Mono, monospace" font-size="11" font-weight="500">3</text>
+            <text x="280" y="238" text-anchor="middle" fill="#2d2d2d"
+              font-family="DM Sans, system-ui, sans-serif" font-size="13">k units · ×σ</text>
+
+            <circle cx="492" cy="80" r="11" fill="#fff" stroke="#0072b2" stroke-width="2"/>
+            <circle cx="492" cy="114" r="11" fill="#fff" stroke="#0072b2" stroke-width="2"/>
+            <circle cx="492" cy="148" r="11" fill="#fff" stroke="#0072b2" stroke-width="2"/>
+            <text x="492" y="174" text-anchor="middle" fill="#6b6b6b"
+              font-family="IBM Plex Mono, monospace" font-size="14">⋮</text>
+            <circle cx="492" cy="196" r="11" fill="#fff" stroke="#0072b2" stroke-width="2"/>
+            <text x="492" y="238" text-anchor="middle" fill="#2d2d2d"
+              font-family="DM Sans, system-ui, sans-serif" font-size="13">n units</text>
+
+            <g stroke="#9aabb8" stroke-width="1.15" fill="none" opacity="0.85">
+              <path d="M79 80 C150 80, 190 104, 266 104"/>
+              <path d="M79 114 C150 114, 190 148, 266 148"/>
+              <path d="M79 148 C150 148, 190 104, 266 104"/>
+              <path d="M79 148 C150 148, 190 192, 266 192"/>
+              <path d="M79 196 C150 196, 190 148, 266 148"/>
+              <path d="M79 196 C150 196, 190 192, 266 192"/>
+              <path d="M294 104 C360 104, 400 80, 481 80"/>
+              <path d="M294 104 C360 104, 400 148, 481 148"/>
+              <path d="M294 148 C360 148, 400 114, 481 114"/>
+              <path d="M294 148 C360 148, 400 196, 481 196"/>
+              <path d="M294 192 C360 192, 400 148, 481 148"/>
+              <path d="M294 192 C360 192, 400 196, 481 196"/>
+            </g>
+
+            <line x1="118" y1="136" x2="208" y2="136" stroke="#6b6b6b" stroke-width="1.4" marker-end="url(#nnArrow)"/>
+            <rect x="136" y="114" width="54" height="22" rx="4" fill="#fff" stroke="#c5d4e0"/>
+            <text x="163" y="129" text-anchor="middle" fill="#0072b2"
+              font-family="IBM Plex Mono, monospace" font-size="12" font-weight="600">Vᵀ</text>
+
+            <line x1="336" y1="136" x2="426" y2="136" stroke="#6b6b6b" stroke-width="1.4" marker-end="url(#nnArrow)"/>
+            <rect x="354" y="114" width="54" height="22" rx="4" fill="#fff" stroke="#e0d0a8"/>
+            <text x="381" y="129" text-anchor="middle" fill="#b77900"
+              font-family="IBM Plex Mono, monospace" font-size="12" font-weight="600">U</text>
+
+            <text x="556" y="148" text-anchor="start" fill="#6b6b6b"
+              font-family="DM Sans, system-ui, sans-serif" font-size="12">vs Ax</text>
+            <text x="556" y="168" text-anchor="start" fill="#2d2d2d"
+              font-family="IBM Plex Mono, monospace" font-size="12" font-weight="500">MSE</text>
+          </svg>
+          <figcaption>
+            Same map as $\\hat A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$, drawn as a linear
+            network: $x\\mapsto V^{\\top}x$, scale by $\\sigma$, then $U$.
+            The loss is mean squared error between $\\hat A$ and $A$ (equivalently between
+            $\\hat A x$ and $Ax$ for all $x$).
+          </figcaption>
+        </figure>
       </li>
       <li>
         <p>
@@ -370,7 +481,7 @@ app.innerHTML = `
     <ol>
       <li>
         Sort columns so that $\\sigma_1 \\ge \\sigma_2 \\ge \\cdots \\ge \\sigma_k$
-        (permute $U$, $V$, and the raw softplus parameters together).
+        (permute $U$, $V$, and $\\mathrm{raw}$ together).
       </li>
       <li>
         For each $j$, if the largest-magnitude entry of $u_j$ is negative, flip the signs
@@ -579,6 +690,30 @@ app.innerHTML = `
     <p>
       If no trial passes, we reject the step and stay put. That keeps a reached
       $\\hat A_{\\mathrm{svd}}$ from walking away on the amber gap curve.
+    </p>
+  </section>
+
+  <section class="appendix" id="appendix-softplus" aria-label="Appendix: Why softplus">
+    <h2>Appendix: Why softplus</h2>
+    <p>
+      Singular values must be nonnegative. The demo stores an unconstrained vector
+      $\\mathrm{raw}$ and sets $\\sigma=\\mathrm{softplus}(\\mathrm{raw})$ with
+      <a href="https://en.wikipedia.org/wiki/Softplus" target="_blank" rel="noopener noreferrer">softplus</a>
+      $\\ln(1+e^{x})$. Why that map, rather than something like $\\sqrt{\\mathrm{raw}^{2}}=|\\mathrm{raw}|$?
+    </p>
+    <p>
+      Absolute value also forces $\\sigma\\ge 0$, but it has a kink at $0$: the chain-rule factor
+      $\\partial\\sigma/\\partial\\mathrm{raw}$ jumps between $-1$ and $+1$ and is undefined at the origin.
+      Gradient steps then chatter when a singular value wants to sit near zero.
+      Softplus is smooth everywhere; its derivative is the logistic sigmoid, always in $(0,1)$.
+      Sending $\\mathrm{raw}\\to-\\infty$ shrinks $\\sigma$ toward $0$ from above without a corner.
+    </p>
+    <p>
+      For large positive $\\mathrm{raw}$, softplus is nearly the identity ($\\sigma\\approx\\mathrm{raw}$),
+      so the parameterization does not warp the scale of ordinary singular values.
+      Alternatives such as $\\mathrm{raw}^{2}$ are smooth and nonnegative too, but they grow
+      quadratically; $e^{\\mathrm{raw}}$ stays positive but is stiff for large values.
+      Softplus is the usual compromise: positive, smooth, and roughly linear when $\\sigma$ is not tiny.
     </p>
   </section>
 

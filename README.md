@@ -58,7 +58,7 @@ Compares final reconstruction error to `torch.linalg.svd` truncated to rank `k`.
 
 - Factors match SVD only up to **sign flips** and **column order**.
 - Classical SVD in the browser uses [`ml-matrix`](https://github.com/mljs/matrix) (`SingularValueDecomposition`). js-pytorch has no `linalg.svd`.
-- `σ = softplus(raw)` keeps singular values non-negative; column scaling `U * σ` keeps `σ` in the autograd graph.
+- $\\sigma = \\mathrm{softplus}(\\mathrm{raw})$ with $\\mathrm{softplus}(x)=\\ln(1+e^{x})$ keeps singular values positive while optimizing an unconstrained vector `raw`; column scaling `U * σ` keeps `σ` in the autograd graph.
 - Retraction is Euclidean gradient of reconstruction + thin QR (modified Gram–Schmidt in the browser; `torch.linalg.qr` in Python)—not a full Riemannian tangent-space projection. Background: [Stiefel manifold](https://en.wikipedia.org/wiki/Stiefel_manifold), [QR](https://en.wikipedia.org/wiki/QR_decomposition), [exponential map](https://en.wikipedia.org/wiki/Exponential_map_(Riemannian_geometry)), Absil–Mahony–Sepulchre [*Optimization Algorithms on Matrix Manifolds*](https://press.princeton.edu/books/hardcover/9780691132983/optimization-algorithms-on-matrix-manifolds), [Absil & Malick (SIAM J. Optim. 2012)](https://doi.org/10.1137/100802529) ([PDF](https://sites.uclouvain.be/absil/2010-038_retractions/retraction_25PA_UCL-INMA-2010-038-v2.pdf)).
 
 ## License

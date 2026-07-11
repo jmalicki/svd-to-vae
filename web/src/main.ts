@@ -27,6 +27,9 @@ const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
   <header>
     <h1>SVD via gradient descent</h1>
+    <p class="repo">
+      <a href="https://github.com/jmalicki/svd-grad" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
+    </p>
     <p class="lede">
       The
       <a href="https://en.wikipedia.org/wiki/Singular_value_decomposition" target="_blank" rel="noopener noreferrer">singular value decomposition</a>
@@ -688,7 +691,9 @@ app.innerHTML = `
         \\qquad c=10^{-4}.$$
     </div>
     <p>
-      If no trial passes, we reject the step and stay put. That keeps a reached
+      If no trial meets Armijo but some $\\alpha$ still lowers the loss, we take the best
+      descent trial anyway — QR often breaks the Euclidean linear model behind Armijo.
+      If every trial raises the loss, we reject the step and stay put. That keeps a reached
       $\\hat A_{\\mathrm{svd}}$ from walking away on the amber gap curve.
     </p>
   </section>

@@ -116,6 +116,8 @@ def train(
             gU, gRaw, gV = U.grad.clone(), raw.grad.clone(), V.grad.clone()
             alpha = 1.0
             accepted = False
+            best_U = best_raw = best_V = None
+            best_L = float("inf")
             for _ in range(ARMIJO_MAX_BT):
                 U.copy_(U0 - alpha * eta * gU)
                 raw.copy_(raw0 - alpha * eta * gRaw)
@@ -125,14 +127,22 @@ def train(
                 sigma_try = F.softplus(raw)
                 A_try = (U * sigma_try) @ V.T
                 L_try = float(torch.mean((A - A_try) ** 2).item())
+                if L_try < best_L:
+                    best_L = L_try
+                    best_U, best_raw, best_V = U.clone(), raw.clone(), V.clone()
                 if L_try <= L0 + ARMIJO_C * alpha * dir_deriv:
                     accepted = True
                     break
                 alpha *= 0.5
             if not accepted:
-                U.copy_(U0)
-                raw.copy_(raw0)
-                V.copy_(V0)
+                if best_U is not None and best_L < L0:
+                    U.copy_(best_U)
+                    raw.copy_(best_raw)
+                    V.copy_(best_V)
+                else:
+                    U.copy_(U0)
+                    raw.copy_(raw0)
+                    V.copy_(V0)
 
         if t % 100 == 0 or t == steps:
             with torch.no_grad():

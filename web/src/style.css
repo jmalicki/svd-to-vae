@@ -45,6 +45,16 @@ header h1 {
   letter-spacing: -0.03em;
 }
 
+header p.repo {
+  margin: -0.15rem 0 0;
+  font-size: 0.9rem;
+}
+
+header p.repo a {
+  color: var(--accent);
+  text-underline-offset: 2px;
+}
+
 header p {
   margin: 0;
   max-width: 42rem;

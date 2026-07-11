@@ -239,7 +239,7 @@ export class SvdGradTrainer {
       ? flatList(t.rawSigma._grad.data)
       : raw0.map(() => 0);
 
-    // ∇L · (−η g) = −η ‖g‖₂²
+    // ∇L · (−η g) = −η ‖g‖₂²  (Euclidean model; QR can invalidate it)
     const dirDeriv = -lr * sumSq;
     let alpha = 1;
     let accepted: {
@@ -247,12 +247,21 @@ export class SvdGradTrainer {
       V: Matrix;
       raw: number[];
     } | null = null;
+    let bestDescent: {
+      U: Matrix;
+      V: Matrix;
+      raw: number[];
+      L: number;
+    } | null = null;
 
     for (let bt = 0; bt < ARMIJO_MAX_BT; bt++) {
       const Utry = thinQ(addScaled(U0, gU, -alpha * lr));
       const Vtry = thinQ(addScaled(V0, gV, -alpha * lr));
       const rawTry = raw0.map((r, i) => r - alpha * lr * (gRaw[i] ?? 0));
       const Ltry = mseFactors(Amat, Utry, rawTry, Vtry);
+      if (bestDescent === null || Ltry < bestDescent.L) {
+        bestDescent = { U: Utry, V: Vtry, raw: rawTry, L: Ltry };
+      }
       if (Ltry <= L0 + ARMIJO_C * alpha * dirDeriv) {
         accepted = { U: Utry, V: Vtry, raw: rawTry };
         break;
@@ -260,13 +269,17 @@ export class SvdGradTrainer {
       alpha *= 0.5;
     }
 
+    // QR can make every Armijo trial fail even when some α still lowers the loss.
+    // Prefer a plain descent step over freezing; only stay put if all trials increase L.
+    if (!accepted && bestDescent && bestDescent.L < L0) {
+      accepted = bestDescent;
+    }
+
     if (accepted) {
       writeIntoNested(t.U.data, accepted.U);
       writeIntoNested(t.V.data, accepted.V);
       writeVectorIntoNested(t.rawSigma.data, accepted.raw);
     }
-    // else: no step (stay put) — rejects loss-increasing updates near EY
-
     t.optimizer.zero_grad();
     t.step += 1;
 

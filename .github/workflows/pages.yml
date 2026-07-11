@@ -28,6 +28,7 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci --ignore-scripts
+      - run: npm test
       - run: npm run build
         env:
           # Project site: https://jmalicki.github.io/svd-grad/

@@ -293,16 +293,23 @@ function train(A, Asvd, floor, seed) {
     } else {
       let alpha = 1;
       let chosen = null;
+      let bestDescent = null;
       for (let bt = 0; bt < maxBt; bt++) {
         const Utry = thinQ(addScaledMat(U, gU, -alpha * eta));
         const Vtry = thinQ(addScaledMat(V, gV, -alpha * eta));
         const rawTry = Float64Array.from(raw, (r, i) => r - alpha * eta * gRaw[i]);
         const mseTry = mseFrom(A, Utry, rawTry, Vtry);
+        if (!bestDescent || mseTry < bestDescent.L) {
+          bestDescent = { U: Utry, V: Vtry, raw: rawTry, L: mseTry };
+        }
         if (mseTry <= mse0 + 1e-4 * alpha * dirDeriv) {
           chosen = { U: Utry, V: Vtry, raw: rawTry };
           break;
         }
         alpha *= 0.5;
+      }
+      if (!chosen && bestDescent && bestDescent.L < mse0) {
+        chosen = bestDescent;
       }
       if (chosen) {
         U = chosen.U;

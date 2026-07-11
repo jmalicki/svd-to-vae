@@ -73,17 +73,77 @@ export function drawSigmaBars(canvas: HTMLCanvasElement, sigma: number[], maxS?:
   }
 }
 
-export type LossPoint = { total: number; recon: number; ortho: number };
+export type LossPoint = { step: number; recon: number; vsSvd: number };
+
+const LOG_EPS = 1e-18;
 
 function formatAxis(v: number): string {
   if (v === 0) return "0";
   const a = Math.abs(v);
-  if (a >= 100 || a < 0.01) return v.toExponential(1);
-  if (a >= 10) return v.toFixed(1);
+  if (a >= 100 || a < 0.01) return v.toExponential(0);
+  if (a >= 10) return v.toFixed(0);
   return v.toFixed(2);
 }
 
-export function drawLossChart(canvas: HTMLCanvasElement, history: LossPoint[]): void {
+function logClamp(v: number): number {
+  return Math.log10(Math.max(v, LOG_EPS));
+}
+
+/** Decade ticks from lo..hi (inclusive), plus endpoints if needed. */
+function logTicks(logMin: number, logMax: number): number[] {
+  const lo = Math.ceil(logMin - 1e-12);
+  const hi = Math.floor(logMax + 1e-12);
+  const ticks: number[] = [];
+  if (hi - lo + 1 <= 6) {
+    for (let e = lo; e <= hi; e++) ticks.push(e);
+  } else {
+    const step = Math.ceil((hi - lo) / 4);
+    for (let e = lo; e <= hi; e += step) ticks.push(e);
+    if (ticks[ticks.length - 1] !== hi) ticks.push(hi);
+  }
+  if (ticks.length === 0) {
+    ticks.push(Math.floor(logMin), Math.ceil(logMax));
+  }
+  return ticks;
+}
+
+function strokeSeries(
+  ctx: CanvasRenderingContext2D,
+  history: LossPoint[],
+  key: "recon" | "vsSvd",
+  maxStep: number,
+  left: number,
+  plotW: number,
+  yAt: (v: number) => number,
+  color: string,
+): void {
+  if (history.length < 2) {
+    const p = history[0];
+    const x = left + (p.step / maxStep) * plotW;
+    const y = yAt(p[key]);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+  ctx.beginPath();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.75;
+  history.forEach((p, i) => {
+    const x = left + (p.step / maxStep) * plotW;
+    const y = yAt(p[key]);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+}
+
+export function drawLossChart(
+  canvas: HTMLCanvasElement,
+  history: LossPoint[],
+  svdRecon: number,
+): void {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   const w = canvas.width;
@@ -92,10 +152,10 @@ export function drawLossChart(canvas: HTMLCanvasElement, history: LossPoint[]): 
   ctx.fillStyle = "#F7F7F7";
   ctx.fillRect(0, 0, w, h);
 
-  const left = 44;
+  const left = 52;
   const right = 10;
   const top = 10;
-  const bottom = 14;
+  const bottom = 22;
   const plotW = w - left - right;
   const plotH = h - top - bottom;
 
@@ -108,54 +168,80 @@ export function drawLossChart(canvas: HTMLCanvasElement, history: LossPoint[]): 
   ctx.lineTo(left + plotW, top + plotH + 0.5);
   ctx.stroke();
 
-  if (history.length < 2) return;
+  if (history.length < 1) return;
 
-  const maxY = Math.max(...history.flatMap((p) => [p.total, p.recon, p.ortho]), 1e-9);
-  const ticks = [0, 0.5, 1].map((t) => t * maxY);
+  const maxStep = Math.max(history[history.length - 1]?.step ?? 0, 1);
+  const vals = [
+    ...history.map((p) => p.recon),
+    ...history.map((p) => p.vsSvd),
+    svdRecon,
+  ].map((v) => Math.max(v, LOG_EPS));
+  let logMax = Math.log10(Math.max(...vals));
+  let logMin = Math.log10(Math.min(...vals));
+  if (logMax - logMin < 0.5) {
+    const mid = 0.5 * (logMax + logMin);
+    logMin = mid - 0.5;
+    logMax = mid + 0.5;
+  } else {
+    const pad = 0.08 * (logMax - logMin);
+    logMin -= pad;
+    logMax += pad;
+  }
+
+  const yAt = (v: number) =>
+    top + plotH - ((logClamp(v) - logMin) / (logMax - logMin)) * plotH;
+
+  const ticks = logTicks(logMin, logMax);
 
   ctx.font = "11px IBM Plex Mono, ui-monospace, monospace";
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#6b6b6b";
 
-  for (const tick of ticks) {
-    const y = top + plotH - (tick / maxY) * plotH;
+  for (const e of ticks) {
+    const y = top + plotH - ((e - logMin) / (logMax - logMin)) * plotH;
+    if (y < top - 2 || y > top + plotH + 2) continue;
     ctx.strokeStyle = "rgba(45,45,45,0.08)";
     ctx.beginPath();
     ctx.moveTo(left, y + 0.5);
     ctx.lineTo(left + plotW, y + 0.5);
     ctx.stroke();
     ctx.fillStyle = "#6b6b6b";
-    ctx.fillText(formatAxis(tick), left - 6, y);
+    ctx.fillText(formatAxis(10 ** e), left - 6, y);
   }
 
-  // Axis title
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "#6b6b6b";
+  ctx.font = "11px IBM Plex Mono, ui-monospace, monospace";
+  ctx.fillText("0", left, top + plotH + 6);
+  ctx.fillText(String(maxStep), left + plotW, top + plotH + 6);
+  ctx.font = "11px DM Sans, system-ui, sans-serif";
+  ctx.fillText("step", left + plotW / 2, top + plotH + 6);
+
   ctx.save();
-  ctx.translate(12, top + plotH / 2);
+  ctx.translate(14, top + plotH / 2);
   ctx.rotate(-Math.PI / 2);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#6b6b6b";
   ctx.font = "11px DM Sans, system-ui, sans-serif";
-  ctx.fillText("loss", 0, 0);
+  ctx.fillText("‖·‖² (log)", 0, 0);
   ctx.restore();
 
-  const series: { key: keyof LossPoint; color: string }[] = [
-    { key: "total", color: "#4C4C4C" },
-    { key: "recon", color: "#0072B2" },
-    { key: "ortho", color: "#E69F00" },
-  ];
+  // Classical SVD: ‖A − Â_svd‖² (constant)
+  const ySvd = yAt(svdRecon);
+  ctx.setLineDash([5, 4]);
+  ctx.strokeStyle = "#4C4C4C";
+  ctx.lineWidth = 1.75;
+  ctx.beginPath();
+  ctx.moveTo(left, ySvd + 0.5);
+  ctx.lineTo(left + plotW, ySvd + 0.5);
+  ctx.stroke();
+  ctx.setLineDash([]);
 
-  for (const s of series) {
-    ctx.beginPath();
-    ctx.strokeStyle = s.color;
-    ctx.lineWidth = 1.5;
-    history.forEach((p, i) => {
-      const x = left + (i / (history.length - 1)) * plotW;
-      const y = top + plotH - (p[s.key] / maxY) * plotH;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    });
-    ctx.stroke();
-  }
+  // GD: ‖A − Â_gd‖²
+  strokeSeries(ctx, history, "recon", maxStep, left, plotW, yAt, "#0072B2");
+  // Gap between reconstructions: ‖Â_svd − Â_gd‖²
+  strokeSeries(ctx, history, "vsSvd", maxStep, left, plotW, yAt, "#E69F00");
 }

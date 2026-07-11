@@ -53,6 +53,16 @@ header p {
   font-size: 0.98rem;
 }
 
+header p.lede {
+  max-width: 46rem;
+  line-height: 1.55;
+}
+
+header a {
+  color: var(--accent);
+  text-underline-offset: 2px;
+}
+
 .formula {
   font-family: var(--mono);
   font-size: 0.82rem;
@@ -104,6 +114,23 @@ header p {
   text-underline-offset: 2px;
 }
 
+sup.fn a,
+sup.fn {
+  color: var(--accent);
+  font-size: 0.75em;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+sup.fn a:hover {
+  text-decoration: underline;
+}
+
+.note a {
+  color: var(--accent);
+  text-underline-offset: 2px;
+}
+
 .theory-note {
   color: var(--muted) !important;
   font-size: 0.88rem !important;
@@ -117,6 +144,77 @@ header p {
 
 .theory .math mjx-container {
   font-size: 1.02em;
+}
+
+.appendix {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 1rem 1.15rem 1.15rem;
+  margin-top: 1.5rem;
+  scroll-margin-top: 1.25rem;
+}
+
+.appendix h2 {
+  margin: 0 0 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.appendix h3 {
+  margin: 1.1rem 0 0.4rem;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.appendix h3:first-of-type {
+  margin-top: 0.15rem;
+}
+
+.appendix p {
+  margin: 0 0 0.55rem;
+  color: var(--ink);
+  line-height: 1.55;
+  font-size: 0.94rem;
+}
+
+.appendix a {
+  color: var(--accent);
+  text-underline-offset: 2px;
+}
+
+.appendix .math {
+  overflow-x: auto;
+  margin: 0.35rem 0 0.65rem;
+  padding: 0.15rem 0;
+}
+
+.appendix .math mjx-container {
+  font-size: 1.02em;
+}
+
+.appendix ul,
+.appendix ol {
+  margin: 0.35rem 0 0.65rem;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.appendix li {
+  color: var(--ink);
+  line-height: 1.5;
+  font-size: 0.92rem;
+}
+
+.appendix .theory-note {
+  color: var(--muted) !important;
+  font-size: 0.88rem !important;
 }
 
 .controls {
@@ -207,6 +305,11 @@ header p {
   background: rgba(45, 45, 45, 0.06);
   padding: 0.05rem 0.28rem;
   border-radius: 3px;
+}
+
+.controls .help a {
+  color: var(--accent);
+  text-underline-offset: 2px;
 }
 
 .controls .btns {
@@ -330,6 +433,26 @@ canvas {
   border-radius: 2px;
   margin-right: 0.3rem;
   vertical-align: middle;
+}
+
+.legend i.dash {
+  height: 2px;
+  border-radius: 0;
+  vertical-align: middle;
+  margin-bottom: 3px;
+}
+
+.chart-note {
+  margin: 0.45rem 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.chart-note a {
+  color: var(--accent);
+  font-family: var(--mono);
+  text-underline-offset: 2px;
 }
 
 .note {

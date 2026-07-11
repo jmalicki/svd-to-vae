@@ -1,8 +1,7 @@
 """CPU PyTorch twin of the browser SVD-by-GD demo.
 
-Loss:
-  L = ||A - U diag(σ) V^T||_F^2 + λ ( ||U^T U - I||_F^2 + ||V^T V - I||_F^2 )
-with σ = softplus(raw).
+Minimize ||A - U diag(σ) V^T||_F^2 with plain SGD, then thin-QR retract U and V
+onto the Stiefel manifold after each step. σ = softplus(raw).
 """
 
 from __future__ import annotations
@@ -13,28 +12,30 @@ import torch
 import torch.nn.functional as F
 
 
-def soft_ortho_svd_loss(
-    A: torch.Tensor,
-    U: torch.Tensor,
-    raw_sigma: torch.Tensor,
-    V: torch.Tensor,
-    lam: float,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    sigma = F.softplus(raw_sigma)
-    A_hat = (U * sigma) @ V.T
-    recon = torch.sum((A - A_hat) ** 2)
-    k = U.shape[1]
-    I = torch.eye(k, dtype=A.dtype, device=A.device)
-    ortho = torch.sum((U.T @ U - I) ** 2) + torch.sum((V.T @ V - I) ** 2)
-    total = recon + lam * ortho
-    return total, recon, ortho
+def retract_stiefel_(X: torch.Tensor) -> None:
+    """In-place thin QR: replace X with Q so X^T X = I."""
+    Q, _ = torch.linalg.qr(X, mode="reduced")
+    X.copy_(Q)
+
+
+def fix_svd_signs_and_order_(U: torch.Tensor, V: torch.Tensor, raw: torch.Tensor) -> None:
+    """Sort by descending softplus(raw); flip so max-|U| entry per column is ≥ 0."""
+    sigma = F.softplus(raw)
+    order = torch.argsort(sigma, descending=True)
+    U.copy_(U[:, order])
+    V.copy_(V[:, order])
+    raw.copy_(raw[order])
+    for j in range(U.shape[1]):
+        i = int(torch.argmax(U[:, j].abs()).item())
+        if U[i, j] < 0:
+            U[:, j].neg_()
+            V[:, j].neg_()
 
 
 def train(
     n: int = 5,
     rank: int = 3,
-    lam: float = 1.0,
-    lr: float = 0.08,
+    lr: float = 0.01,
     steps: int = 800,
     seed: int = 0,
 ) -> None:
@@ -48,18 +49,25 @@ def train(
         U.mul_(0.3)
         raw.mul_(0.3)
         V.mul_(0.3)
+        retract_stiefel_(U)
+        retract_stiefel_(V)
+        fix_svd_signs_and_order_(U, V, raw)
 
-    opt = torch.optim.Adam([U, raw, V], lr=lr)
+    opt = torch.optim.SGD([U, raw, V], lr=lr)
 
     for t in range(steps):
         opt.zero_grad()
-        loss, recon, ortho = soft_ortho_svd_loss(A, U, raw, V, lam)
-        loss.backward()
+        sigma = F.softplus(raw)
+        A_hat = (U * sigma) @ V.T
+        recon = torch.sum((A - A_hat) ** 2)
+        recon.backward()
         opt.step()
+        with torch.no_grad():
+            retract_stiefel_(U)
+            retract_stiefel_(V)
+            fix_svd_signs_and_order_(U, V, raw)
         if t % 100 == 0 or t == steps - 1:
-            print(
-                f"step {t:4d}  L={loss.item():.4e}  recon={recon.item():.4e}  ortho={ortho.item():.4e}"
-            )
+            print(f"step {t:4d}  recon={recon.item():.4e}")
 
     with torch.no_grad():
         sigma = F.softplus(raw)
@@ -79,12 +87,11 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--n", type=int, default=5)
     p.add_argument("--rank", type=int, default=3)
-    p.add_argument("--lam", type=float, default=1.0)
-    p.add_argument("--lr", type=float, default=0.08)
+    p.add_argument("--lr", type=float, default=0.01)
     p.add_argument("--steps", type=int, default=800)
     p.add_argument("--seed", type=int, default=0)
     args = p.parse_args()
-    train(args.n, args.rank, args.lam, args.lr, args.steps, args.seed)
+    train(args.n, args.rank, args.lr, args.steps, args.seed)
 
 
 if __name__ == "__main__":

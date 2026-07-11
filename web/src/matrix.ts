@@ -105,6 +105,46 @@ export function reconstruct(U: Matrix, sigma: number[], V: Matrix): Matrix {
   return matmul(matmul(U, diag(sigma)), transpose(V));
 }
 
+/**
+ * Thin Q factor via modified Gram–Schmidt (Stiefel retraction).
+ * Columns of the result are orthonormal: QᵀQ = I.
+ */
+export function thinQ(m: Matrix): Matrix {
+  const Q = copy(m);
+  const { rows: n, cols: k } = Q;
+  for (let j = 0; j < k; j++) {
+    let normSq = 0;
+    for (let i = 0; i < n; i++) {
+      const v = get(Q, i, j);
+      normSq += v * v;
+    }
+    const inv = 1 / Math.sqrt(Math.max(normSq, 1e-30));
+    for (let i = 0; i < n; i++) set(Q, i, j, get(Q, i, j) * inv);
+    for (let ell = j + 1; ell < k; ell++) {
+      let dot = 0;
+      for (let i = 0; i < n; i++) dot += get(Q, i, j) * get(Q, i, ell);
+      for (let i = 0; i < n; i++) {
+        set(Q, i, ell, get(Q, i, ell) - dot * get(Q, i, j));
+      }
+    }
+  }
+  return Q;
+}
+
+/** Write a Matrix into a nested number[][] tensor buffer in place. */
+export function writeIntoNested(data: unknown, m: Matrix): void {
+  if (!Array.isArray(data)) {
+    throw new Error("tensor data is not nested arrays");
+  }
+  for (let i = 0; i < m.rows; i++) {
+    const row = data[i];
+    if (!Array.isArray(row)) throw new Error("expected 2D nested tensor data");
+    for (let j = 0; j < m.cols; j++) {
+      (row as number[])[j] = get(m, i, j);
+    }
+  }
+}
+
 export function maxAbs(m: Matrix): number {
   let mabs = 0;
   for (let i = 0; i < m.data.length; i++) mabs = Math.max(mabs, Math.abs(m.data[i]));

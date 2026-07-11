@@ -1,12 +1,13 @@
 # SVD via Gradient Descent
 
-Interactive demo: recover a rank-`k` factorization by Adam on
+Interactive demo: recover a rank-`k` factorization by plain SGD on
 
 ```
-L = ||A − U diag(σ) Vᵀ||_F² + λ ( ||UᵀU − I||_F² + ||VᵀV − I||_F² )
+L = ||A − U diag(σ) Vᵀ||_F²
 ```
 
-and compare it live to truncated classical SVD on the same matrix.
+then **retract** with thin QR after every step so `UᵀU = I` and `VᵀV = I`
+(Stiefel), and compare live to truncated classical SVD on the same matrix.
 
 ## Web demo
 
@@ -25,13 +26,13 @@ cd web && bash scripts/vendor-js-pytorch.sh
 Open the printed local URL. Controls (all numeric params are **sliders**):
 
 - **Size n** / **Rank k** — matrix shape and factorization rank
-- **λ**, **learning rate**, **steps/frame** — loss weight, Adam step size, animation speed
+- **Learning rate**, **steps/frame** — SGD step size and animation speed
 - **Device** — CPU or GPU (GPU.js over **WebGL**, not WebGPU)
 - Play / Pause / Reset
 
-Expand each control’s help text beside the slider for what it does.
+The GD column heatmaps animate each frame; the classical SVD column stays fixed until you change `A`, `n`, or `k`. The loss chart shows reconstruction vs the truncated-SVD floor (QR keeps factors orthonormal by construction).
 
-The GD column heatmaps animate each frame; the classical SVD column stays fixed until you change `A`, `n`, or `k`.
+Plain SGD is used instead of Adam: Adam’s momentum buffers fight hard QR retraction (and column reordering), which shows up as a bouncing loss.
 
 ### Deploy note
 
@@ -41,7 +42,7 @@ Small matrices often train faster on CPU; GPU is available for completeness.
 
 ## Python twin
 
-Same loss against real PyTorch (CPU):
+Same algorithm against real PyTorch (CPU):
 
 ```bash
 cd python
@@ -56,3 +57,4 @@ Compares final reconstruction error to `torch.linalg.svd` truncated to rank `k`.
 - Factors match SVD only up to **sign flips** and **column order**.
 - Classical SVD in the browser uses [`ml-matrix`](https://github.com/mljs/matrix) (`SingularValueDecomposition`). js-pytorch has no `linalg.svd`.
 - `σ = softplus(raw)` keeps singular values non-negative; column scaling `U * σ` keeps `σ` in the autograd graph.
+- Retraction is Euclidean gradient of reconstruction + thin QR (modified Gram–Schmidt in the browser; `torch.linalg.qr` in Python)—not a full Riemannian tangent-space projection. Background: [Stiefel manifold](https://en.wikipedia.org/wiki/Stiefel_manifold), [QR](https://en.wikipedia.org/wiki/QR_decomposition), [exponential map](https://en.wikipedia.org/wiki/Exponential_map_(Riemannian_geometry)), Absil–Mahony–Sepulchre [*Optimization Algorithms on Matrix Manifolds*](https://press.princeton.edu/books/hardcover/9780691132983/optimization-algorithms-on-matrix-manifolds), [Absil & Malick (SIAM J. Optim. 2012)](https://doi.org/10.1137/100802529) ([PDF](https://sites.uclouvain.be/absil/2010-038_retractions/retraction_25PA_UCL-INMA-2010-038-v2.pdf)).

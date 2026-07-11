@@ -1,13 +1,10 @@
 # SVD via Gradient Descent
 
-Interactive demo: recover a rank-`k` factorization by plain SGD on
-
-```
-L = ||A − U diag(σ) Vᵀ||_F²
-```
-
-then **retract** with thin QR after every step so `UᵀU = I` and `VᵀV = I`
-(Stiefel), and compare live to truncated classical SVD on the same matrix.
+Interactive demo: recover a rank-`k` factorization by SGD on mean squared
+reconstruction error (charts report Frobenius²), then **retract** with thin QR
+after every step so `UᵀU = I` and `VᵀV = I` (Stiefel), and compare live to
+truncated classical SVD on the same matrix. Step size is Adam-like but global:
+one scalar EMA of mean(`g²`) sets a shared `η_t` (no per-entry moment vectors).
 
 ## Web demo
 
@@ -26,13 +23,13 @@ cd web && bash scripts/vendor-js-pytorch.sh
 Open the printed local URL. Controls (all numeric params are **sliders**):
 
 - **Size n** / **Rank k** — matrix shape and factorization rank
-- **Learning rate**, **steps/frame** — SGD step size and animation speed
+- **Base LR**, **steps/frame** — base step size `η₀` for global-RMS SGD (`η_t = η₀/(√v̂+ε)`) and animation speed
 - **Device** — CPU or GPU (GPU.js over **WebGL**, not WebGPU)
 - Play / Pause / Reset
 
 The GD column heatmaps animate each frame; the classical SVD column stays fixed until you change `A`, `n`, or `k`. The loss chart shows reconstruction vs the truncated-SVD floor (QR keeps factors orthonormal by construction).
 
-Plain SGD is used instead of Adam: Adam’s momentum buffers fight hard QR retraction (and column reordering), which shows up as a bouncing loss.
+Global RMS SGD instead of Adam: same adaptive second-moment idea, but one scalar `v` shared by all parameters — Adam’s per-entry buffers fight hard QR retraction.
 
 ### Deploy note
 

@@ -1,6 +1,7 @@
 import { torch } from "js-pytorch";
 import {
   type Matrix,
+  mat,
   toNested,
   fromTensorData,
   frobeniusSq,
@@ -24,7 +25,13 @@ export type GradState = {
   step: number;
   rank: number;
   device: DeviceKind;
+  /** Current adaptive step size (scalar; same for all parameters). */
+  lr: number;
 };
+
+/** Adam-style second-moment EMA coefficient for the global scalar v. */
+export const LR_BETA2 = 0.999;
+export const LR_EPS = 1e-8;
 
 type AnyTensor = {
   data: unknown;
@@ -44,35 +51,56 @@ type AnyTensor = {
   zero_grad?: () => void;
 };
 
-type Optimizer = { step: () => void; zero_grad: () => void; lr: number };
-
-type Trainables = {
-  U: AnyTensor;
-  rawSigma: AnyTensor;
-  V: AnyTensor;
-  A: AnyTensor;
-  optimizer: Optimizer;
-  m: number;
-  n: number;
-  k: number;
-  step: number;
-  device: DeviceKind;
-};
-
 /**
- * Plain SGD — js-pytorch only ships Adam; moments fight QR retraction.
- * Update: θ ← θ − lr · ∇θ
+ * SGD with a single Adam-style second moment on mean(g²).
+ * One scalar v → one η for every parameter. No per-entry buffers to fight QR.
+ *
+ *   ḡ² ← mean_i g_i²
+ *   v  ← β₂ v + (1−β₂) ḡ²
+ *   η  ← η₀ / (√(v̂) + ε)     with bias-corrected v̂
+ *   θ  ← θ − η ∇θ
  */
-class Sgd {
+class GlobalRmsSgd {
   params: AnyTensor[];
+  baseLr: number;
+  beta2: number;
+  eps: number;
+  /** EMA of mean squared gradient (scalar). */
+  v: number;
+  /** Optimizer steps taken (for bias correction). */
+  t: number;
+  /** Last applied η (for status). */
   lr: number;
 
-  constructor(params: AnyTensor[], lr: number) {
+  constructor(params: AnyTensor[], baseLr: number) {
     this.params = params;
-    this.lr = lr;
+    this.baseLr = baseLr;
+    this.beta2 = LR_BETA2;
+    this.eps = LR_EPS;
+    this.v = 0;
+    this.t = 0;
+    this.lr = baseLr;
   }
 
   step(): void {
+    let sumSq = 0;
+    let count = 0;
+    for (const p of this.params) {
+      const g = p._grad;
+      if (!g) continue;
+      const flat = flatList(g.data);
+      for (const x of flat) {
+        sumSq += x * x;
+        count += 1;
+      }
+    }
+    const meanSq = count > 0 ? sumSq / count : 0;
+
+    this.t += 1;
+    this.v = this.beta2 * this.v + (1 - this.beta2) * meanSq;
+    const vHat = this.v / (1 - Math.pow(this.beta2, this.t));
+    this.lr = this.baseLr / (Math.sqrt(vHat) + this.eps);
+
     for (const p of this.params) {
       const g = p._grad;
       if (!g) continue;
@@ -84,6 +112,19 @@ class Sgd {
     for (const p of this.params) p.zero_grad?.();
   }
 }
+
+type Trainables = {
+  U: AnyTensor;
+  rawSigma: AnyTensor;
+  V: AnyTensor;
+  A: AnyTensor;
+  optimizer: GlobalRmsSgd;
+  m: number;
+  n: number;
+  k: number;
+  step: number;
+  device: DeviceKind;
+};
 
 /** Fully reduce (js-pytorch sum is one axis at a time). */
 function fullSum(t: AnyTensor): AnyTensor {
@@ -97,9 +138,12 @@ function fullSum(t: AnyTensor): AnyTensor {
 }
 
 /**
- * Rank-k SVD factors with plain SGD + QR retraction (js-pytorch).
- * Minimize ||A − U diag(σ) Vᵀ||_F², then thin-QR U and V onto Stiefel each step.
- * σ = softplus(raw); Â = (U ⊙ σ) Vᵀ keeps σ in the graph.
+ * Rank-k SVD factors with global-RMS SGD + QR retraction (js-pytorch).
+ * Train on mean squared error (‖A−Â‖_F²/(mn)) so gradients stay O(1) as n grows;
+ * charts still report Frobenius². After each step, thin-QR onto Stiefel.
+ * Sign/σ-order conventions are applied only when reading state for display.
+ * Step size adapts via one scalar second moment of mean(g²) — Adam’s idea without
+ * per-entry moment vectors.
  */
 export class SvdGradTrainer {
   private t: Trainables | null = null;
@@ -117,18 +161,27 @@ export class SvdGradTrainer {
     scaleNestedInPlace(V.data, 0.3);
     retractInPlace(U, m, k);
     retractInPlace(V, n, k);
-    // Init: same sign rule as classical (σ sort kicks in once values differ).
-    fixSignsInPlace(U, V, m, n, k);
 
     const Aten = torch.tensor(toNested(A), false, device) as unknown as AnyTensor;
-    const optimizer = new Sgd([U, rawSigma, V], lr);
+    const optimizer = new GlobalRmsSgd([U, rawSigma, V], lr);
 
-    this.t = { U, rawSigma, V, A: Aten, optimizer, m, n, k, step: 0, device };
+    this.t = {
+      U,
+      rawSigma,
+      V,
+      A: Aten,
+      optimizer,
+      m,
+      n,
+      k,
+      step: 0,
+      device,
+    };
   }
 
   setLr(lr: number): void {
     if (!this.t) return;
-    this.t.optimizer.lr = lr;
+    this.t.optimizer.baseLr = lr;
   }
 
   get device(): DeviceKind {
@@ -141,52 +194,45 @@ export class SvdGradTrainer {
 
     const sigma = softplus(t.rawSigma, t.device);
     const Ahat = t.U.mul(sigma).matmul(t.V.transpose(0, 1));
-    const recon = fullSum(Ahat.sub(t.A).pow(2));
+    // Mean over entries: gradients stay O(1) as n grows (Frobenius² scales ~ n²).
+    const mse = fullSum(Ahat.sub(t.A).pow(2)).mul(1 / (t.m * t.n));
 
-    recon.backward();
+    mse.backward();
     t.optimizer.step();
     t.optimizer.zero_grad();
 
     retractInPlace(t.U, t.m, t.k);
     retractInPlace(t.V, t.n, t.k);
-    // Break sign/order ambiguity (L unchanged): σ descending; max-|U| entry ≥ 0 per column.
-    fixSvdSignsAndOrderInPlace(t.U, t.V, t.rawSigma, t.m, t.n, t.k, t.device);
     t.step += 1;
 
+    return this.readState();
+  }
+
+  snapshot(_A: Matrix): GradState {
+    if (!this.t) throw new Error("trainer not initialized");
+    return this.readState();
+  }
+
+  /** Copy factors, apply display-only σ-sort / sign rule, report Frobenius². */
+  private readState(): GradState {
+    const t = this.t!;
     const Umat = fromTensorData(t.U.data, t.m, t.k);
     const Vmat = fromTensorData(t.V.data, t.n, t.k);
     const sigmaVals = flatList(softplus(t.rawSigma, t.device).data);
-    const AhatMat = reconstruct(Umat, sigmaVals, Vmat);
+    const ordered = orderFactorsForDisplay(Umat, sigmaVals, Vmat);
+    const AhatMat = reconstruct(ordered.U, ordered.sigma, ordered.V);
     const Amat = fromTensorData(t.A.data, t.m, t.n);
     const reconVal = frobeniusSq(sub(Amat, AhatMat));
 
     return {
-      U: Umat,
-      sigma: sigmaVals,
-      V: Vmat,
+      U: ordered.U,
+      sigma: ordered.sigma,
+      V: ordered.V,
       loss: { recon: reconVal },
       step: t.step,
       rank: t.k,
       device: t.device,
-    };
-  }
-
-  snapshot(A: Matrix): GradState {
-    const t = this.t;
-    if (!t) throw new Error("trainer not initialized");
-    const sigmaVals = flatList(softplus(t.rawSigma, t.device).data);
-    const Umat = fromTensorData(t.U.data, t.m, t.k);
-    const Vmat = fromTensorData(t.V.data, t.n, t.k);
-    const Ahat = reconstruct(Umat, sigmaVals, Vmat);
-    const reconVal = frobeniusSq(sub(A, Ahat));
-    return {
-      U: Umat,
-      sigma: sigmaVals,
-      V: Vmat,
-      loss: { recon: reconVal },
-      step: t.step,
-      rank: t.k,
-      device: t.device,
+      lr: t.optimizer.lr,
     };
   }
 }
@@ -199,82 +245,46 @@ function retractInPlace(factor: AnyTensor, rows: number, cols: number): void {
 
 /**
  * Sort columns by descending σ; flip so each U column’s largest-|entry| is ≥ 0.
- * Same rule as classicalSvd. Does not change Â.
+ * Same rule as classicalSvd. Does not change Â. Display-only — does not mutate training tensors.
  */
-function fixSvdSignsAndOrderInPlace(
-  U: AnyTensor,
-  V: AnyTensor,
-  rawSigma: AnyTensor,
-  m: number,
-  n: number,
-  k: number,
-  device: DeviceKind,
-): void {
-  const sigma = flatList(softplus(rawSigma, device).data);
+function orderFactorsForDisplay(
+  U: Matrix,
+  sigma: number[],
+  V: Matrix,
+): { U: Matrix; sigma: number[]; V: Matrix } {
+  const k = sigma.length;
   const order = Array.from({ length: k }, (_, i) => i).sort(
-    (a, b) => sigma[b] - sigma[a],
+    (a, b) => sigma[b]! - sigma[a]!,
   );
-  permuteColumnsInPlace(U.data, m, k, order);
-  permuteColumnsInPlace(V.data, n, k, order);
-  permuteVectorInPlace(rawSigma.data, order);
-  fixSignsInPlace(U, V, m, n, k);
-}
-
-function fixSignsInPlace(
-  U: AnyTensor,
-  V: AnyTensor,
-  m: number,
-  n: number,
-  k: number,
-): void {
-  const Umat = fromTensorData(U.data, m, k);
-  const Vmat = fromTensorData(V.data, n, k);
+  const Uo = mat(U.rows, k);
+  const Vo = mat(V.rows, k);
+  const so = new Array<number>(k);
+  for (let j = 0; j < k; j++) {
+    const src = order[j]!;
+    so[j] = sigma[src]!;
+    for (let i = 0; i < U.rows; i++) {
+      Uo.data[i * k + j] = U.data[i * k + src]!;
+    }
+    for (let i = 0; i < V.rows; i++) {
+      Vo.data[i * k + j] = V.data[i * k + src]!;
+    }
+  }
   for (let j = 0; j < k; j++) {
     let best = 0;
     let bestAbs = 0;
-    for (let i = 0; i < m; i++) {
-      const v = Umat.data[i * k + j];
+    for (let i = 0; i < Uo.rows; i++) {
+      const v = Uo.data[i * k + j]!;
       if (Math.abs(v) > bestAbs) {
         bestAbs = Math.abs(v);
         best = v;
       }
     }
     if (best < 0) {
-      for (let i = 0; i < m; i++) Umat.data[i * k + j] *= -1;
-      for (let i = 0; i < n; i++) Vmat.data[i * k + j] *= -1;
+      for (let i = 0; i < Uo.rows; i++) Uo.data[i * k + j]! *= -1;
+      for (let i = 0; i < Vo.rows; i++) Vo.data[i * k + j]! *= -1;
     }
   }
-  writeIntoNested(U.data, Umat);
-  writeIntoNested(V.data, Vmat);
-}
-
-function permuteColumnsInPlace(
-  data: unknown,
-  rows: number,
-  cols: number,
-  order: number[],
-): void {
-  const src = fromTensorData(data, rows, cols);
-  const out = {
-    rows,
-    cols,
-    data: new Float64Array(rows * cols),
-  };
-  for (let j = 0; j < cols; j++) {
-    const srcJ = order[j];
-    for (let i = 0; i < rows; i++) {
-      out.data[i * cols + j] = src.data[i * cols + srcJ];
-    }
-  }
-  writeIntoNested(data, out);
-}
-
-function permuteVectorInPlace(data: unknown, order: number[]): void {
-  if (!Array.isArray(data)) return;
-  const src = (data as number[]).slice();
-  for (let j = 0; j < order.length; j++) {
-    (data as number[])[j] = src[order[j]];
-  }
+  return { U: Uo, sigma: so, V: Vo };
 }
 
 function softplus(raw: AnyTensor, device: DeviceKind): AnyTensor {

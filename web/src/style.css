@@ -393,6 +393,56 @@ button:hover {
   }
 }
 
+.sigma-table-wrap {
+  margin: 0 0 1rem;
+}
+
+.sigma-table-scroll {
+  overflow-x: auto;
+}
+
+.sigma-table {
+  border-collapse: collapse;
+  border: 1px solid var(--ink);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  width: 100%;
+  table-layout: auto;
+}
+
+.sigma-table th,
+.sigma-table td {
+  border: 1px solid var(--line);
+  padding: 0.45rem 0.7rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.sigma-table thead th {
+  font-weight: 600;
+  color: var(--muted);
+  text-align: center;
+  background: rgba(45, 45, 45, 0.06);
+  border-bottom: 1px solid var(--ink);
+}
+
+.sigma-table thead th:first-child {
+  text-align: left;
+  color: var(--ink);
+}
+
+.sigma-table tbody th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--ink);
+  background: rgba(45, 45, 45, 0.03);
+  border-right: 1px solid var(--ink);
+}
+
+.sigma-table tbody tr:last-child td {
+  color: var(--accent);
+}
+
 .factor-row {
   display: flex;
   flex-wrap: wrap;

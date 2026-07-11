@@ -113,8 +113,10 @@ app.innerHTML = `
           replace $U$ and $V$ by the $Q$ factors from thin
           <a href="https://en.wikipedia.org/wiki/QR_decomposition" target="_blank" rel="noopener noreferrer">QR</a>
           so $U^{\\top}U = I_k$ and $V^{\\top}V = I_k$ exactly. Then $\\sigma$ plays the role of
-          singular values. The loss alone does not fix signs or column order, so after each
-          step we apply a definite convention
+          singular values. The step size is Adam-like but global: one scalar second moment
+          of mean($g^{2}$) sets a shared $\\eta_t$ for every entry — no per-parameter moment
+          vectors. The loss alone does not fix signs or column order, so for display we apply
+          a definite convention
           <sup class="fn"><a href="#appendix-signs">†</a></sup>
           (same idea as the classical column): sort $\\sigma$ descending, and flip each column
           so the largest-magnitude entry of $u_j$ is nonnegative.
@@ -129,9 +131,9 @@ app.innerHTML = `
     <div class="control-row">
       <label class="slider">
         <span class="slider-label">Size <em>n</em> <strong id="sizeVal">5</strong></span>
-        <input id="size" type="range" min="3" max="16" step="1" value="5" />
+        <input id="size" type="range" min="0" max="13" step="1" value="2" />
       </label>
-      <p class="help">Side length of random square matrix <code>A</code> (n×n). 4–8 is a good demo range.</p>
+      <p class="help">Side length of random square <code>A</code> (n×n). The slider is log-spaced (3…64); larger <em>n</em> is slower per step.</p>
     </div>
     <div class="control-row">
       <label class="slider">
@@ -142,10 +144,10 @@ app.innerHTML = `
     </div>
     <div class="control-row">
       <label class="slider">
-        <span class="slider-label">Learning rate <strong id="lrVal">0.01</strong></span>
+        <span class="slider-label">Base LR <strong id="lrVal">0.01</strong></span>
         <input id="lr" type="range" min="0.001" max="0.20" step="0.001" value="0.01" />
       </label>
-      <p class="help">SGD step size. Default is slow so the curves are easy to watch; raise for faster convergence.</p>
+      <p class="help">Base step size $\\eta_0$. Effective $\\eta_t = \\eta_0/(\\sqrt{\\hat v}+\\varepsilon)$ from a single EMA of mean($g^{2}$) — adaptive like Adam’s second moment, but one number for all parameters.</p>
     </div>
     <div class="control-row">
       <label class="slider">
@@ -190,6 +192,21 @@ app.innerHTML = `
       <p class="chart-note">
         Closest float64 can get ≈ <a href="#appendix-fp" id="fpNote">—</a>
       </p>
+    </div>
+  </div>
+
+  <div class="panel sigma-table-wrap">
+    <h2>Singular values</h2>
+    <div class="sigma-table-scroll">
+      <table class="sigma-table" id="sigmaTable" aria-label="Singular values SVD vs GD">
+        <thead>
+          <tr><th scope="col"></th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">SVD</th></tr>
+          <tr><th scope="row">GD</th></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 
@@ -336,14 +353,14 @@ app.innerHTML = `
     </p>
     <p>
       Classical libraries already break the ambiguity with a convention (singular values
-      sorted descending; a sign rule on each singular vector). We do the same after every
-      step — not by copying classical $U$, but by applying an independent rule to the
-      learned factors.
+      sorted descending; a sign rule on each singular vector). We apply the same idea when
+      reading factors for heatmaps — not by copying classical $U$, and not by mutating the
+      training tensors (so column reorder never churns the optimizer state).
     </p>
 
     <h3>The convention we use</h3>
     <p>
-      After QR retraction:
+      On a copy of the factors, after QR retraction:
     </p>
     <ol>
       <li>
@@ -362,32 +379,65 @@ app.innerHTML = `
     </p>
     <p class="theory-note">
       This is not part of the training loss — it does not change $\\hat A$ or $L_{\\mathrm{recon}}$.
-      It only chooses which of the equivalent factorizations we display and carry forward.
-      (It <em>does</em> interact badly with Adam’s per-entry moments; see
-      <a href="#appendix-adam">Why not Adam?</a>.)
+      It only chooses which of the equivalent factorizations we show in the heatmaps.
     </p>
   </section>
 
   <section class="appendix" id="appendix-adam" aria-label="Appendix: Why not Adam">
     <h2>Appendix: Why not Adam?</h2>
+
+    <h3>What Adam stores</h3>
     <p>
       <a href="https://en.wikipedia.org/wiki/Adam_(optimizer)" target="_blank" rel="noopener noreferrer">Adam</a>
-      keeps exponential moving averages of past gradients (first and second moments) for each
-      entry of $U$ and $V$. That works in ordinary Euclidean training, where the parameter
-      vector only moves by small additive updates.
+      keeps, for <em>each parameter entry</em> $i$, exponential moving averages of the gradient
+      and of its square:
+    </p>
+    <div class="math">
+      $$m_i \\leftarrow \\beta_1 m_i + (1-\\beta_1) g_i,\\qquad
+        v_i \\leftarrow \\beta_2 v_i + (1-\\beta_2) g_i^{2},\\qquad
+        \\theta_i \\leftarrow \\theta_i - \\eta\\,\\frac{\\hat m_i}{\\sqrt{\\hat v_i}+\\varepsilon}.$$
+    </div>
+    <p>
+      The vectors $m$ and $v$ are the same shape as $U$, $\\mathrm{raw}$, and $V$. That works in
+      ordinary Euclidean training, where $\\theta$ only moves by small additive updates: yesterday’s
+      moment at index $i$ is still “about” today’s parameter at index $i$.
+    </p>
+
+    <h3>Why that breaks with QR retraction</h3>
+    <p>
+      Here, after each gradient step we <em>replace</em> $U$ and $V$ by their thin-QR $Q$ factors.
+      That is a hard, discontinuous change in ambient coordinates — not a small step along the
+      same axes. Adam’s moment buffers are still stored against the <em>old</em> entries; they are
+      not rotated or re-orthonormalized with the retraction. The next Adam update then applies a
+      stale, misaligned $m_i/\\sqrt{v_i}$ step, which shows up as a bouncing reconstruction loss.
     </p>
     <p>
-      Here, after each SGD step we <em>replace</em> $U$ and $V$ by their QR factors, and we may
-      also reorder or flip columns to fix signs and $\\sigma$-order. Those are hard, discontinuous
-      changes in ambient coordinates. Adam’s moment buffers are still stored against the
-      <em>old</em> entries: they are not moved with the retraction, and column swaps make them
-      point at the wrong columns. The next Adam update then applies a stale, misaligned step —
-      which shows up as a bouncing reconstruction loss.
+      Per-parameter momentum has the same problem: a velocity buffer is tied to ambient indices
+      that the retraction just scrambled. Fixing that properly means a manifold-aware optimizer
+      that <em>transports</em> momentum with the retraction — more machinery than this demo needs.
     </p>
+
+    <h3>What we use instead: one shared second moment</h3>
     <p>
-      Plain SGD has no such buffers: $\\theta \\leftarrow \\theta - \\eta\\nabla L$. After a retract, the
-      next gradient is simply evaluated at the new point. (There <em>are</em> manifold-aware Adams
-      that transport momentum with the retraction; that is more machinery than this demo needs.)
+      We keep Adam’s useful idea — shrink the step when gradients are large, grow it when they
+      settle — but store only a <em>single scalar</em> second moment, not a tensor of $v_i$’s.
+      Let $\\bar g^{2}$ be the mean of $g_i^{2}$ over every entry of $U$, $\\mathrm{raw}$, and $V$:
+    </p>
+    <div class="math">
+      $$v \\leftarrow \\beta_2 v + (1-\\beta_2)\\bar g^{2},\\qquad
+        \\hat v = \\frac{v}{1-\\beta_2^{t}},\\qquad
+        \\eta_t = \\frac{\\eta_0}{\\sqrt{\\hat v}+\\varepsilon},\\qquad
+        \\theta \\leftarrow \\theta - \\eta_t\\,\\nabla L.$$
+    </div>
+    <p>
+      Every parameter shares the same $\\eta_t$. After QR, that scalar is still a valid summary of
+      “how big were the gradients?” — there is no per-entry buffer left pointing at the wrong
+      column. The base rate $\\eta_0$ is the slider; the status line shows the live $\\eta_t$.
+    </p>
+    <p class="theory-note">
+      This is global RMS / Adam’s second moment without the first-moment vector $m$. A fixed
+      inverse-time schedule ($\\eta_0/(1+t/\\tau)$) is also safe under retraction, but it cannot
+      react to the actual gradient scale; the shared $v$ can.
     </p>
   </section>
 
@@ -438,6 +488,7 @@ const el = {
   gdV: app.querySelector<HTMLCanvasElement>("#gdV")!,
   gdRecon: app.querySelector<HTMLCanvasElement>("#gdRecon")!,
   gdErr: app.querySelector<HTMLParagraphElement>("#gdErr")!,
+  sigmaTable: app.querySelector<HTMLTableElement>("#sigmaTable")!,
   fpNote: app.querySelector<HTMLAnchorElement>("#fpNote")!,
   fpFloorVal: app.querySelector<HTMLElement>("#fpFloorVal")!,
 };
@@ -455,9 +506,21 @@ let svdFloor = 0;
 let svdReconMat: Matrix;
 let gpuOk = false;
 
+/** Log-spaced matrix sizes for the n slider (index → n). */
+const SIZE_STOPS = [3, 4, 5, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48, 64];
+
+function sizeFromSlider(): number {
+  const i = clamp(
+    Math.round(Number(el.size.value) || 0),
+    0,
+    SIZE_STOPS.length - 1,
+  );
+  el.size.value = String(i);
+  return SIZE_STOPS[i];
+}
+
 function syncSliderLabels(): void {
-  const n = clamp(Math.round(Number(el.size.value) || 5), 3, 16);
-  el.size.value = String(n);
+  const n = sizeFromSlider();
   el.rank.max = String(n);
   let k = clamp(Math.round(Number(el.rank.value) || 1), 1, n);
   el.rank.value = String(k);
@@ -469,7 +532,7 @@ function syncSliderLabels(): void {
 
 function readControls() {
   syncSliderLabels();
-  const n = Number(el.size.value);
+  const n = sizeFromSlider();
   const k = Number(el.rank.value);
   const device = el.device.value as DeviceKind;
   const lr = Number(el.lr.value);
@@ -538,6 +601,7 @@ function paintSvd(): void {
   drawSigmaBars(el.svdS, svd.sigma, sigmaScale);
   drawHeatmap(el.svdRecon, svdReconMat, sharedScale);
   el.svdErr.textContent = `‖A − Â_svd‖_F² = ${svdFloor.toExponential(3)}`;
+  paintSigmaTable();
 }
 
 function paintGd(): void {
@@ -550,11 +614,41 @@ function paintGd(): void {
   const err = frobeniusSq(sub(A, recon));
   const vs = frobeniusSq(sub(svdReconMat, recon));
   el.gdErr.textContent = `‖A − Â_gd‖_F² = ${err.toExponential(3)}  ·  ‖Â_svd − Â_gd‖_F² = ${vs.toExponential(3)}  ·  SVD ${svdFloor.toExponential(3)}`;
+  paintSigmaTable();
+}
+
+function fmtSigma(x: number): string {
+  if (!Number.isFinite(x)) return "—";
+  const a = Math.abs(x);
+  if (a !== 0 && (a >= 1e4 || a < 1e-4)) return x.toExponential(8);
+  return x.toFixed(8);
+}
+
+/** Rows = SVD / GD; columns = σ₁…σₖ. */
+function paintSigmaTable(): void {
+  const k = svd.sigma.length;
+  const thead = el.sigmaTable.querySelector("thead")!;
+  const tbody = el.sigmaTable.querySelector("tbody")!;
+
+  const headCells = ["", ...Array.from({ length: k }, (_, j) => String(j + 1))];
+  thead.innerHTML = `<tr>${headCells.map((c) => `<th scope="col">${c}</th>`).join("")}</tr>`;
+
+  const svdCells = svd.sigma.map((s) => `<td>${fmtSigma(s)}</td>`).join("");
+  const gdCells = Array.from({ length: k }, (_, j) => {
+    const s = gd.sigma[j];
+    return `<td>${s === undefined ? "—" : fmtSigma(s)}</td>`;
+  }).join("");
+
+  tbody.innerHTML = `
+    <tr><th scope="row">SVD</th>${svdCells}</tr>
+    <tr><th scope="row">GD</th>${gdCells}</tr>
+  `;
 }
 
 function updateStatus(): void {
   const { steps } = readControls();
-  el.status.textContent = `step ${gd.step} · ${gd.device} · ${steps}/frame · L=${gd.loss.recon.toExponential(3)}`;
+  const eta = gd.lr.toExponential(2);
+  el.status.textContent = `step ${gd.step} · ${gd.device} · ${steps}/frame · η=${eta} · L=${gd.loss.recon.toExponential(3)}`;
 }
 
 function frame(): void {

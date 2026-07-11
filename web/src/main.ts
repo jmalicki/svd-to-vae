@@ -115,7 +115,10 @@ app.innerHTML = `
           so $U^{\\top}U = I_k$ and $V^{\\top}V = I_k$ exactly. Then $\\sigma$ plays the role of
           singular values. The step size is Adam-like but global: one scalar second moment
           of mean($g^{2}$) sets a shared $\\eta_t$ for every entry — no per-parameter moment
-          vectors. The loss alone does not fix signs or column order, so for display we apply
+          vectors
+          (<a href="#appendix-adam">why not Adam</a>;
+          <a href="#appendix-vfloor">how $v$ is floored</a>).
+          The loss alone does not fix signs or column order, so for display we apply
           a definite convention
           <sup class="fn"><a href="#appendix-signs">†</a></sup>
           (same idea as the classical column): sort $\\sigma$ descending, and flip each column
@@ -147,7 +150,7 @@ app.innerHTML = `
         <span class="slider-label">Base LR <strong id="lrVal">0.01</strong></span>
         <input id="lr" type="range" min="0.001" max="0.20" step="0.001" value="0.01" />
       </label>
-      <p class="help">Base step size $\\eta_0$. Effective $\\eta_t = \\eta_0/(\\sqrt{\\hat v}+\\varepsilon)$ from a single EMA of mean($g^{2}$) — adaptive like Adam’s second moment, but one number for all parameters.</p>
+      <p class="help">Base step size $\\eta_0$. Effective $\\eta_t = \\eta_0/(\\sqrt{v^{\\dagger}}+\\sqrt{v_{\\mathrm{fp}}})$ with $v^{\\dagger}=\\max(\\hat v,\\bar g^{2},v_{\\mathrm{fp}})$ — one shared second moment; see <a href="#appendix-vfloor">Flooring the second moment</a>.</p>
     </div>
     <div class="control-row">
       <label class="slider">
@@ -280,8 +283,10 @@ app.innerHTML = `
     </div>
     <p class="theory-note">
       Here $\\mathrm{qf}(\\cdot)$ is the $Q$ factor of a thin QR. This demo uses the Euclidean
-      gradient of reconstruction plus QR (easy to explain), not a full projection of the
-      gradient onto the Stiefel tangent space.
+      gradient of reconstruction plus QR. Projecting the gradient onto the Stiefel tangent
+      space first is the Riemannian version; even then, the $(U,\\sigma,V)$ gauge means
+      $\\hat A=\\hat A_{\\mathrm{svd}}$ need not be a discrete fixed point unless you also
+      freeze or gauge-fix the factors.
     </p>
 
     <h3>Further reading</h3>
@@ -406,10 +411,10 @@ app.innerHTML = `
     <h3>Why that breaks with QR retraction</h3>
     <p>
       Here, after each gradient step we <em>replace</em> $U$ and $V$ by their thin-QR $Q$ factors.
-      That is a hard, discontinuous change in ambient coordinates — not a small step along the
-      same axes. Adam’s moment buffers are still stored against the <em>old</em> entries; they are
-      not rotated or re-orthonormalized with the retraction. The next Adam update then applies a
-      stale, misaligned $m_i/\\sqrt{v_i}$ step, which shows up as a bouncing reconstruction loss.
+      In ambient coordinates that jump is discontinuous: the new entries need not lie near the old
+      ones along the axes Adam’s buffers are indexed by. Those buffers stay tied to the pre-QR
+      layout, so the next update applies a stale, misaligned $m_i/\\sqrt{v_i}$ step and the
+      reconstruction loss bounces.
     </p>
     <p>
       Per-parameter momentum has the same problem: a velocity buffer is tied to ambient indices
@@ -419,25 +424,161 @@ app.innerHTML = `
 
     <h3>What we use instead: one shared second moment</h3>
     <p>
-      We keep Adam’s useful idea — shrink the step when gradients are large, grow it when they
-      settle — but store only a <em>single scalar</em> second moment, not a tensor of $v_i$’s.
-      Let $\\bar g^{2}$ be the mean of $g_i^{2}$ over every entry of $U$, $\\mathrm{raw}$, and $V$:
+      We keep Adam’s useful idea — rescale by a second-moment estimate — but store only a
+      <em>single scalar</em> $v$, the EMA of mean($g_i^{2}$) over all entries of $U$,
+      $\\mathrm{raw}$, and $V$. Every parameter then shares one step size
+      $\\eta_t = \\eta_0/(\\sqrt{v^{\\dagger}}+\\sqrt{v_{\\mathrm{fp}}})$.
+      After QR, that scalar is still a valid summary of “how big were the gradients?” — there is
+      no per-entry buffer left pointing at the wrong column.
+    </p>
+    <p class="theory-note">
+      The definition of $v^{\\dagger}$ (floors on today’s $\\bar g^{2}$ and a float64 noise level)
+      is a separate issue from “per-entry vs global.” See
+      <a href="#appendix-vfloor">Flooring the second moment</a>.
+    </p>
+  </section>
+
+  <section class="appendix" id="appendix-vfloor" aria-label="Appendix: Flooring the second moment">
+    <h2>Appendix: Flooring the second moment</h2>
+
+    <h3>The update</h3>
+    <p>
+      With a shared second moment, write $\\bar g^{2}$ for the mean of $g_i^{2}$ over all trainable
+      entries and
     </p>
     <div class="math">
       $$v \\leftarrow \\beta_2 v + (1-\\beta_2)\\bar g^{2},\\qquad
         \\hat v = \\frac{v}{1-\\beta_2^{t}},\\qquad
-        \\eta_t = \\frac{\\eta_0}{\\sqrt{\\hat v}+\\varepsilon},\\qquad
+        v^{\\dagger} = \\max(\\hat v,\\,\\bar g^{2},\\,v_{\\mathrm{fp}}),\\qquad
+        \\eta_t = \\frac{\\eta_0}{\\sqrt{v^{\\dagger}}+\\sqrt{v_{\\mathrm{fp}}}},\\qquad
         \\theta \\leftarrow \\theta - \\eta_t\\,\\nabla L.$$
     </div>
     <p>
-      Every parameter shares the same $\\eta_t$. After QR, that scalar is still a valid summary of
-      “how big were the gradients?” — there is no per-entry buffer left pointing at the wrong
-      column. The base rate $\\eta_0$ is the slider; the status line shows the live $\\eta_t$.
+      The base rate $\\eta_0$ is the slider; the status line shows the live $\\eta_t$.
+      Why not just use $\\hat v$ in the denominator? Two failure modes, and neither is fixed by
+      “regularizing” with $\\eta_t\\le\\eta_0$. After the Euclidean step we still QR-retract, and we
+      may shrink the step further — see
+      <a href="#appendix-vfloor-armijo">Armijo line search on the retract</a>.
+    </p>
+
+    <h3>Why not clip $\\eta_t\\le\\eta_0$</h3>
+    <p>
+      A hard cap $\\eta_t\\le\\eta_0$ looks like a simple cure for late ringing, but it is the wrong
+      knob. The natural Adam-style step size (in RMS) is about
+      $\\eta_0\\,\\|g\\|_{\\mathrm{rms}}/\\sqrt{\\bar g^{2}}\\approx\\eta_0$ whenever the second
+      moment matches today’s gradient energy. That identity needs $\\eta_t\\approx\\eta_0/\\sqrt{\\bar g^{2}}$,
+      which is <em>larger</em> than $\\eta_0$ as soon as $\\sqrt{\\bar g^{2}}&lt;1$ — the usual regime
+      once MSE gradients shrink. Forcing $\\eta_t\\le\\eta_0$ then makes
+      $\\|\\Delta\\|_{\\mathrm{rms}}\\approx\\eta_0\\sqrt{\\bar g^{2}}\\ll\\eta_0$, and training stalls.
+      So the floor belongs on $v$, not as an artificial ceiling on $\\eta_t$.
+    </p>
+
+    <h3>Floor by today’s $\\bar g^{2}$</h3>
+    <p>
+      The EMA $\\hat v$ can lag <em>below</em> the current $\\bar g^{2}$: after a long stretch of
+      tiny gradients, $\\beta_2\\approx 0.999$ still remembers a dying $v$, then a noisier step
+      (or a jump from QR) arrives with larger $g$. Using that stale small $\\hat v$ in
+      $\\eta_t=\\eta_0/(\\sqrt{\\hat v}+\\cdots)$ invents a huge learning rate and the loss rings.
+    </p>
+
+    <h3>Why no floor $\\Rightarrow$ ringing</h3>
+    <p>
+      Near a minimum the true gradient is small, so $\\hat v$ keeps decaying. Without the
+      $\\max(\\cdot,\\bar g^{2})$ floor, nothing stops $\\sqrt{\\hat v}$ from falling far below
+      $\\|g\\|_{\\mathrm{rms}}$ on the next step. The update length is then
+    </p>
+    <div class="math">
+      $$\\|\\Delta\\|_{\\mathrm{rms}}
+        = \\frac{\\eta_0}{\\sqrt{\\hat v}}\\,\\|g\\|_{\\mathrm{rms}}
+        \\gg \\eta_0
+        \\qquad\\text{when }\\sqrt{\\hat v}\\ll\\|g\\|_{\\mathrm{rms}}.$$
+    </div>
+    <p>
+      That overshoot carries $\\hat A_{\\mathrm{gd}}$ away from the truncated-SVD matrix
+      $\\hat A_{\\mathrm{svd}}$. The next gradient points roughly the other way, $\\hat v$ is still
+      tiny, and the same oversized step fires again. On the live chart the amber curve
+      $\\|\\hat A_{\\mathrm{svd}}-\\hat A_{\\mathrm{gd}}\\|_F^{2}$ oscillates; flooring with today’s
+      $\\bar g^{2}$ caps $\\|g\\|_{\\mathrm{rms}}/\\sqrt{v^{\\dagger}}$ at about $1$, so that bounce
+      never gets armed.
+    </p>
+    <figure class="ring-figure">
+      <img src="/ringing-floor.svg" width="560" height="220"
+        alt="Measured log ‖Â_svd − Â_gd‖²: floored global-RMS settles; unfloored rings" />
+      <figcaption>
+        Measured Node run (<code>npm run gen:ringing</code>, also a build prerequisite): same
+        $A$, init, and base $\\eta_0$; blue uses floored $v^{\\dagger}$ plus Armijo on the QR
+        retract, amber uses unfloored $\\eta_t=\\eta_0/(\\sqrt{\\hat v}+10^{-8})$ with no line
+        search. Both curves are $\\|\\hat A_{\\mathrm{svd}}-\\hat A_{\\mathrm{gd}}\\|_F^{2}$
+        (log scale). The build <em>fails</em> if amber does not ring, or if blue does not stay
+        near the Eckart–Young gap.
+      </figcaption>
+    </figure>
+
+    <p>
+      Requiring $v^{\\dagger}\\ge\\bar g^{2}$ means we never precondition with a second moment
+      smaller than the energy of <em>this</em> gradient. Then
+    </p>
+    <div class="math">
+      $$\\|\\Delta\\|_{\\mathrm{rms}}
+        = \\eta_t\\,\\|g\\|_{\\mathrm{rms}}
+        \\lesssim \\frac{\\eta_0}{\\sqrt{\\bar g^{2}}}\\,\\sqrt{\\bar g^{2}}
+        = \\eta_0.$$
+    </div>
+    <p>
+      without forbidding $\\eta_t&gt;\\eta_0$. The EMA may still <em>raise</em> the denominator
+      (shrink steps) when the recent past was louder than today; it just cannot quietly
+      understate today’s scale.
+    </p>
+
+    <h3>Floor by float64 ULP</h3>
+    <p>
+      The third argument uses the same absolute scale as
+      <a href="#appendix-fp">Closest you can get in floating point</a>.
+      With machine epsilon $\\varepsilon$ and $\\|A\\|_{\\infty}=\\max|A_{ij}|$,
+    </p>
+    <div class="math">
+      $$v_{\\mathrm{fp}} = \\bigl(\\varepsilon\\|A\\|_{\\infty}\\bigr)^{2}.$$
+    </div>
+    <p>
+      A per-entry residual smaller than one ULP of $A$ is not a trustworthy signal in float64;
+      gradient energy below $v_{\\mathrm{fp}}$ is in the same noise bucket. We stop letting
+      $\\hat v$ fall through that floor, and we add $\\sqrt{v_{\\mathrm{fp}}}$ in the denominator
+      so $\\eta_t$ stays finite if every estimate hits the floor at once.
     </p>
     <p class="theory-note">
-      This is global RMS / Adam’s second moment without the first-moment vector $m$. A fixed
-      inverse-time schedule ($\\eta_0/(1+t/\\tau)$) is also safe under retraction, but it cannot
-      react to the actual gradient scale; the shared $v$ can.
+      This is not weight decay or an $\\eta$ schedule. It is a statement about which second-moment
+      values are still meaningful: at least today’s $\\bar g^{2}$, and never below float noise.
+    </p>
+
+    <h3 id="appendix-vfloor-armijo">Armijo line search on the retract</h3>
+    <p>
+      Flooring $v$ stops $\\eta$-blow-up ringing, but it does not make each QR step decrease
+      the reconstruction loss. The update is Euclidean descent followed by thin QR; that
+      retraction can move $\\hat A$ enough that the loss goes up even when $\\nabla L$ pointed
+      downhill. Empirically, a floored run can reach the truncated-SVD reconstruction
+      (amber gap near zero) and then drift to a worse critical point.
+    </p>
+    <p>
+      After $\\eta_t$ is fixed, we therefore
+      <a href="https://en.wikipedia.org/wiki/Backtracking_line_search" target="_blank" rel="noopener noreferrer">backtrack</a>
+      $\\alpha\\in\\{1,\\tfrac12,\\tfrac14,\\ldots\\}$ on the retracted trial point
+    </p>
+    <div class="math">
+      $$\\theta(\\alpha)=\\mathrm{QR}\\bigl(\\theta-\\alpha\\eta_t\\,\\nabla L\\bigr)$$
+    </div>
+    <p>
+      and accept the largest $\\alpha$ that satisfies the
+      <a href="https://en.wikipedia.org/wiki/Wolfe_conditions#Armijo_rule_and_curvature_condition" target="_blank" rel="noopener noreferrer">Armijo</a>
+      sufficient-decrease test on the MSE,
+    </p>
+    <div class="math">
+      $$L\\bigl(\\theta(\\alpha)\\bigr)
+        \\le L(\\theta)+c\\,\\alpha\\,(-\\eta_t\\|g\\|_2^{2}),
+        \\qquad c=10^{-4}.$$
+    </div>
+    <p>
+      If no trial passes, we reject the step and stay put. That keeps a reached
+      $\\hat A_{\\mathrm{svd}}$ from walking away on the amber gap curve.
     </p>
   </section>
 
@@ -459,6 +600,9 @@ app.innerHTML = `
       That is roughly the closest nonzero reconstruction error you can represent: below it,
       a smaller plotted value is numerical noise, not a better fit to $A$.
       The floor is not drawn on the chart — it sits far below the axis.
+      The optimizer uses the same ULP scale as $v_{\\mathrm{fp}}=(\\varepsilon\\|A\\|_{\\infty})^{2}$ when
+      flooring the shared second moment; see
+      <a href="#appendix-vfloor">Flooring the second moment</a>.
     </p>
   </section>
 `;

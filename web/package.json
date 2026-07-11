@@ -4,9 +4,13 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "gen:ringing": "node scripts/gen-ringing-plot.mjs",
+    "predev": "npm run gen:ringing",
     "dev": "vite",
+    "prebuild": "npm run gen:ringing",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:ringing": "npm run gen:ringing"
   },
   "dependencies": {
     "js-pytorch": "^0.7.2",

@@ -2,9 +2,10 @@
 
 Interactive demo: recover a rank-`k` factorization by SGD on mean squared
 reconstruction error (charts report Frobenius²), then **retract** with thin QR
-after every step so `UᵀU = I` and `VᵀV = I` (Stiefel), and compare live to
-truncated classical SVD on the same matrix. Step size is Adam-like but global:
-one scalar EMA of mean(`g²`) sets a shared `η_t` (no per-entry moment vectors).
+after every step so `UᵀU = I` and `VᵀV = I` (Stiefel), with Armijo backtracking
+on the retract so steps do not increase loss. Compare live to truncated classical
+SVD on the same matrix. Step size is Adam-like but global: one scalar EMA of
+mean(`g²`) sets a shared `η_t` (no per-entry moment vectors).
 
 ## Web demo
 
@@ -14,6 +15,7 @@ npm install --ignore-scripts   # skip native `gl` compile if it fails
 npm run dev
 ```
 
+`predev` / `prebuild` run `npm run gen:ringing`, which trains floored global-RMS + Armijo vs unfloored global-RMS (no line search), plots $\\|\\hat A_{\\mathrm{svd}}-\\hat A_{\\mathrm{gd}}\\|_F^{2}$, writes `public/ringing-floor.svg`, and **fails the build if the unfloored curve does not ring or the floored curve fails to stay near the Eckart–Young gap**.
 The app imports a **vendored browser build** of js-pytorch (`web/src/vendor/js-pytorch-browser.js`) so Vite does not pull the Node `createRequire` entry. GPU mode uses GPU.js / WebGL from that bundle. Refresh after upgrading js-pytorch with:
 
 ```bash
@@ -23,7 +25,7 @@ cd web && bash scripts/vendor-js-pytorch.sh
 Open the printed local URL. Controls (all numeric params are **sliders**):
 
 - **Size n** / **Rank k** — matrix shape and factorization rank
-- **Base LR**, **steps/frame** — base step size `η₀` for global-RMS SGD (`η_t = η₀/(√v̂+ε)`) and animation speed
+- **Base LR**, **steps/frame** — base step size `η₀` for global-RMS SGD (`v†=max(v̂,ḡ²,v_fp)`, `η_t=η₀/(√v†+√v_fp)`) and animation speed
 - **Device** — CPU or GPU (GPU.js over **WebGL**, not WebGPU)
 - Play / Pause / Reset
 

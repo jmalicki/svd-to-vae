@@ -217,6 +217,39 @@ sup.fn a:hover {
   font-size: 0.88rem !important;
 }
 
+.ring-figure {
+  margin: 0.85rem 0 1rem;
+  padding: 0;
+}
+
+.ring-figure img {
+  display: block;
+  width: 100%;
+  max-width: 560px;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fafafa;
+}
+
+.ring-figure svg {
+  display: block;
+  width: 100%;
+  max-width: 520px;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fafafa;
+}
+
+.ring-figure figcaption {
+  margin: 0.45rem 0 0;
+  max-width: 36rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
 .controls {
   display: grid;
   gap: 0;

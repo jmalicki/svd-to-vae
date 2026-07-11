@@ -2,25 +2,34 @@
 
 Minimize mean squared reconstruction error with global-RMS SGD (one scalar
 Adam-style second moment), then thin-QR retract U and V onto the Stiefel
-manifold after each step. σ = softplus(raw). Sign/σ-order is display-only.
+manifold. Armijo backtracking on the retract keeps a reached Eckart–Young Â
+from walking away. σ = softplus(raw). Sign/σ-order is display-only.
 """
 
 from __future__ import annotations
 
 import argparse
+import math
 
 import torch
 import torch.nn.functional as F
 
 # Match web/src/svdGrad.ts
 LR_BETA2 = 0.999
-LR_EPS = 1e-8
+ARMIJO_C = 1e-4
+ARMIJO_MAX_BT = 12
 
 
 def retract_stiefel_(X: torch.Tensor) -> None:
     """In-place thin QR: replace X with Q so X^T X = I."""
     Q, _ = torch.linalg.qr(X, mode="reduced")
     X.copy_(Q)
+
+
+def grad_second_moment_fp_floor(data_scale: float) -> float:
+    """Float64 floor on mean(g²); same ULP scale as the web FP appendix."""
+    ulp = torch.finfo(torch.float64).eps * max(data_scale, torch.finfo(torch.float64).eps)
+    return float(ulp * ulp)
 
 
 def order_factors_for_display(
@@ -51,6 +60,15 @@ def mean_grad_sq(params: list[torch.Tensor]) -> float:
     return total / count if count else 0.0
 
 
+def sum_grad_sq(params: list[torch.Tensor]) -> float:
+    total = 0.0
+    for p in params:
+        if p.grad is None:
+            continue
+        total += float(torch.sum(p.grad * p.grad).item())
+    return total
+
+
 def train(
     n: int = 5,
     rank: int = 3,
@@ -73,6 +91,7 @@ def train(
 
     params = [U, raw, V]
     v = 0.0
+    v_fp = grad_second_moment_fp_floor(float(A.abs().max().item()))
 
     for t in range(1, steps + 1):
         for p in params:
@@ -84,19 +103,40 @@ def train(
         mse.backward()
 
         mean_sq = mean_grad_sq(params)
+        sum_sq = sum_grad_sq(params)
         v = LR_BETA2 * v + (1.0 - LR_BETA2) * mean_sq
         v_hat = v / (1.0 - LR_BETA2**t)
-        eta = lr / (v_hat**0.5 + LR_EPS)
+        v_use = max(v_hat, mean_sq, v_fp)
+        eta = lr / (math.sqrt(v_use) + math.sqrt(v_fp))
+        L0 = float(mse.item())
+        dir_deriv = -eta * sum_sq
 
         with torch.no_grad():
-            for p in params:
-                p.add_(p.grad, alpha=-eta)
-            retract_stiefel_(U)
-            retract_stiefel_(V)
+            U0, raw0, V0 = U.clone(), raw.clone(), V.clone()
+            gU, gRaw, gV = U.grad.clone(), raw.grad.clone(), V.grad.clone()
+            alpha = 1.0
+            accepted = False
+            for _ in range(ARMIJO_MAX_BT):
+                U.copy_(U0 - alpha * eta * gU)
+                raw.copy_(raw0 - alpha * eta * gRaw)
+                V.copy_(V0 - alpha * eta * gV)
+                retract_stiefel_(U)
+                retract_stiefel_(V)
+                sigma_try = F.softplus(raw)
+                A_try = (U * sigma_try) @ V.T
+                L_try = float(torch.mean((A - A_try) ** 2).item())
+                if L_try <= L0 + ARMIJO_C * alpha * dir_deriv:
+                    accepted = True
+                    break
+                alpha *= 0.5
+            if not accepted:
+                U.copy_(U0)
+                raw.copy_(raw0)
+                V.copy_(V0)
 
         if t % 100 == 0 or t == steps:
             with torch.no_grad():
-                recon = torch.sum((A - A_hat) ** 2).item()
+                recon = torch.sum((A - (U * F.softplus(raw)) @ V.T) ** 2).item()
             print(f"step {t:4d}  η={eta:.4e}  recon={recon:.4e}")
 
     with torch.no_grad():

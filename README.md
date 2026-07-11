@@ -9,6 +9,9 @@ mean(`g²`) sets a shared `η_t` (no per-entry moment vectors).
 
 ## Web demo
 
+Live: [https://jmalicki.github.io/svd-grad/](https://jmalicki.github.io/svd-grad/)
+(built and deployed from `main` by GitHub Actions).
+
 ```bash
 cd web
 npm install --ignore-scripts   # skip native `gl` compile if it fails

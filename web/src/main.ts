@@ -502,7 +502,7 @@ app.innerHTML = `
       never gets armed.
     </p>
     <figure class="ring-figure">
-      <img src="/ringing-floor.svg" width="560" height="220"
+      <img src="${import.meta.env.BASE_URL}ringing-floor.svg" width="560" height="220"
         alt="Measured log ‖Â_svd − Â_gd‖²: floored global-RMS settles; unfloored rings" />
       <figcaption>
         Measured Node run (<code>npm run gen:ringing</code>, also a build prerequisite): same

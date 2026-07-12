@@ -23,7 +23,7 @@ app.innerHTML = `
   <header>
     ${chapterNav({
       current: 3,
-      prev: { href: "./svd.html", label: "← SVD" },
+      prev: { href: "./svd.html", label: "← Factors" },
       next: { href: "./faces.html", label: "Next →" },
     })}
     <h1>Keeping only some of the stretches</h1>
@@ -31,7 +31,7 @@ app.innerHTML = `
       <a href="https://github.com/jmalicki/svd-to-vae" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
     </p>
     <p class="lede">
-      The SVD writes $A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$ with every singular value kept.
+      Last page built $A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$ from orthogonal maps and stretches.
       Once you have many $\\sigma$'s, you can keep only the largest $k$ and rebuild an approximation
       $\\hat A_k = U_k\\,\\mathrm{diag}(\\sigma)\\,V_k^{\\top}$ — that is
       <a href="https://en.wikipedia.org/wiki/Low-rank_approximation" target="_blank" rel="noopener noreferrer">truncated SVD</a>.

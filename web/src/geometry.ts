@@ -271,7 +271,8 @@ app.innerHTML = `
       Any $2\\times 2$ linear transformation is those pieces composed: rotate, stretch, rotate again.
     </p>
     <p class="next-chapter">
-      <a href="./svd.html">That recipe has a name →</a>
+      The same three steps work for matrices of any size.
+      <a href="./svd.html">Continue →</a>
     </p>
   </section>
 `;

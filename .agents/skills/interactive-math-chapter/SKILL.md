@@ -25,24 +25,30 @@ with a concrete picture.
    from abstract factors.
 3. **See / measure, then name.** Introduce Greek letters and formal names only
    after the learner has seen the quantity (axis length, error, code width).
-4. **Avoid special cases that hide the concept.** First worked examples must
+4. **Geometry before algebra for orthogonal maps.** Householder = mirror first;
+   $I-2nn^{\\top}$ only after the picture. Aim-onto-axis via perpendicular
+   bisector before “introduce a zero.” Do not present classical Gram–Schmidt as
+   the path to the SVD (GS/QR is a different factorization; Householder appears
+   in SVD *bidiagonalization*).
+5. **Avoid special cases that hide the concept.** First worked examples must
    force the distinction you care about (e.g. tilted $A$ so $\sigma$ ≠ diagonal
    entries; warped faces so pixel-SVD fails). Diagonal / identity / toy cases
    come later as simplifying checks.
-5. **Show intermediate stages for multi-step stories.** If the claim is
+6. **Show intermediate stages for multi-step stories.** If the claim is
    “rotate → stretch → rotate,” show four frames, not only before/after of the
    product. If the claim is “encode → bottleneck → decode,” show the middle.
-6. **Interactive demos isolate one lever.** Each scrubber should answer one
+7. **Interactive demos isolate one lever.** Each scrubber should answer one
    question the prose just posed. Dumping all parameters at once is not
    “interactive pedagogy.”
-7. **Notation earns its keep.** Prefer “stretch amounts,” “how many numbers we
+8. **Notation earns its keep.** Prefer “stretch amounts,” “how many numbers we
    keep,” “noise on the codes” until a symbol is reused enough to pay off.
-8. **Bridge forward, don’t foreshadow surprises.** One bland sentence to the
+9. **Bridge forward, don’t foreshadow surprises.** One bland sentence to the
    next chapter is fine. Do not name VAE / ELBO / KL (or other later punchlines)
-   early unless this *is* the reveal chapter.
-9. **Acceptance test.** End a chapter rewrite only when a bright learner can
-   state 2–4 concrete takeaways in plain language (write them in the PR/commit
-   notes or at the bottom of the chapter plan).
+   early unless this *is* the reveal chapter. Do not name SVD until the learner
+   has seen the geometric pieces on that chapter.
+10. **Acceptance test.** End a chapter rewrite only when a bright learner can
+    state 2–4 concrete takeaways in plain language (write them in the PR/commit
+    notes or at the bottom of the chapter plan).
 
 ## Recommended page skeleton
 

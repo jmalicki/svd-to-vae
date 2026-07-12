@@ -9,7 +9,7 @@ Live: [https://jmalicki.github.io/svd-to-vae/](https://jmalicki.github.io/svd-to
 | Chapter | Page | Idea |
 | --- | --- | --- |
 | 1 | [`/`](https://jmalicki.github.io/svd-to-vae/) | Matrix as linear transformation: rotate, stretch |
-| 2 | [`/svd.html`](https://jmalicki.github.io/svd-to-vae/svd.html) | SVD: any matrix factors as rotate–stretch–rotate |
+| 2 | [`/svd.html`](https://jmalicki.github.io/svd-to-vae/svd.html) | Householder mirrors → zeros → stretches; then name the SVD |
 | 3 | [`/truncate.html`](https://jmalicki.github.io/svd-to-vae/truncate.html) | Truncated SVD on a matrix |
 | 4 | [`/faces.html`](https://jmalicki.github.io/svd-to-vae/faces.html) | Face compression (IMM + warp + appearance SVD) |
 | 5 | [`/gradient.html`](https://jmalicki.github.io/svd-to-vae/gradient.html) | Recover factors by gradient descent |

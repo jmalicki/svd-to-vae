@@ -2,12 +2,28 @@ import "./style.css";
 import { chapterNav } from "./chapterNav";
 import { classicalSvd, type SvdResult } from "./classicalSvd";
 import {
+  applyLeft,
+  applyMat2,
+  applyRight,
+  columnOf,
+  demoMatrix2,
+  householderAimColumn,
+  householderAimToE1,
+  householderFromNormal,
+  reflectAcrossNormal,
+  rightGivensZeroSuperdiag,
+} from "./householder2d";
+import { frameFromMatrix } from "./svdGeometry2d";
+import {
   type Matrix,
   randomNormal,
   reconstruct,
   maxAbs,
   frobeniusSq,
   sub,
+  get,
+  fromNested,
+  copy,
 } from "./matrix";
 import { drawHeatmap, drawSigmaBars } from "./viz";
 
@@ -16,6 +32,12 @@ declare global {
     MathJax?: { typesetPromise?: (els?: Element[]) => Promise<void> };
   }
 }
+
+const INK = "#1a1a1a";
+const MUTED = "#9a9a9a";
+const ACCENT = "#0072B2";
+const ACCENT2 = "#E69F00";
+const MIRROR = "#D55E00";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 
@@ -26,101 +48,342 @@ app.innerHTML = `
       prev: { href: "./", label: "← Matrix" },
       next: { href: "./truncate.html", label: "Next →" },
     })}
-    <h1>The singular value decomposition</h1>
+    <h1>Reflections, zeros, and stretches</h1>
     <p class="repo">
       <a href="https://github.com/jmalicki/svd-to-vae" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
     </p>
     <p class="lede">
-      Last page: every $2\\times 2$ linear transformation is rotate, stretch, rotate again.
-      That factorization has a name — the
-      <a href="https://en.wikipedia.org/wiki/Singular_value_decomposition" target="_blank" rel="noopener noreferrer">singular value decomposition</a>
-      (SVD) — and it works for any size of matrix, not only $2\\times 2$.
+      Chapter 1 used <strong>rotations</strong> — length-preserving maps that never flip orientation.
+      Reflections are the same family with a flip: bounce across a mirror line, lengths stay the same.
+      The named construction is a <strong>Householder</strong> reflection. Here we use mirrors to
+      introduce zeros in a matrix, then read the leftover stretches — the same rotate–stretch–rotate
+      story, built from geometry.
     </p>
   </header>
 
-  <section class="theory" aria-label="SVD">
-    <h2>What the name means</h2>
-    <ol class="theory-steps">
-      <li>
-        <p>
-          Any real matrix $A$ factors as a product of two rotations (or reflections) and a stretch:
-        </p>
-        <div class="math">
-          $$A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$$
-        </div>
-        <p>
-          $V^{\\top}$ rotates the input, $\\mathrm{diag}(\\sigma)$ stretches each axis by a
-          nonnegative amount $\\sigma_j$ (the <strong>singular values</strong>), and $U$ rotates
-          the result. Same three steps you saw on the unit circle — now written as matrices.
-        </p>
-      </li>
-      <li>
-        <p>
-          $U$ and $V$ have
-          <a href="https://en.wikipedia.org/wiki/Orthonormality" target="_blank" rel="noopener noreferrer">orthonormal</a>
-          columns: they change directions without changing lengths.
-          The numbers $\\sigma_1 \\ge \\sigma_2 \\ge \\cdots \\ge 0$ are how hard $A$ stretches
-          along those special directions.
-        </p>
-      </li>
-      <li>
-        <p>
-          Multiply the factors back together and you recover $A$ exactly
-          (up to floating-point noise). Nothing is thrown away yet — this page is only the
-          full decomposition.
-        </p>
-      </li>
-    </ol>
+  <section class="demo-block" aria-label="Free mirror">
+    <h2>Reflect across a line</h2>
+    <p class="demo-intro">
+      Scrub the mirror. The unit circle and sample arrows bounce to the other side.
+      Nothing stretches — only which side of the line they sit on.
+    </p>
+    <div class="controls">
+      <div class="control-row">
+        <label class="slider">
+          <span class="slider-label">Mirror angle <strong id="mirAngVal">35°</strong></span>
+          <input id="mirAng" type="range" min="-90" max="90" step="1" value="35" />
+        </label>
+        <p class="help">Direction of the mirror line through the origin. The normal is $90^\\circ$ from the line.</p>
+      </div>
+    </div>
+    <div class="grid-2 ellipse-pair">
+      <div class="panel">
+        <h2>Before</h2>
+        <canvas id="mirIn" width="280" height="280" aria-label="Unit circle before reflection"></canvas>
+        <p class="hint">Orange and blue sample arrows. Gray mirror line.</p>
+      </div>
+      <div class="panel">
+        <h2>After reflection</h2>
+        <canvas id="mirOut" width="280" height="280" aria-label="Unit circle after reflection"></canvas>
+        <p class="hint">Same lengths. Orientation flipped across the mirror.</p>
+      </div>
+    </div>
+    <p class="formula">
+      Once you see the picture: $H = I - 2nn^{\\top}$ with unit normal $n$ to the mirror.
+      $H$ is orthogonal ($H^{\\top}H=I$) and $\\det H = -1$.
+    </p>
   </section>
 
-  <div class="controls">
-    <div class="control-row">
-      <label class="slider">
-        <span class="slider-label">Size <em>n</em> <strong id="sizeVal">5</strong></span>
-        <input id="size" type="range" min="0" max="10" step="1" value="2" />
-      </label>
-      <p class="help">Side length of random square <code>A</code> (n×n). The slider is log-spaced (3…32).</p>
-    </div>
-    <div class="control-actions">
-      <div class="btns">
-        <button id="regen" type="button">Regenerate A</button>
+  <section class="demo-block" aria-label="Aim onto axis">
+    <h2>Aim an arrow onto the axis</h2>
+    <p class="demo-intro">
+      Choose a mirror so a chosen arrow $a$ reflects onto the $+x$-axis.
+      Geometrically the mirror is the <strong>perpendicular bisector</strong> between the tip of $a$
+      and its target $(\\|a\\|, 0)$. The second coordinate becomes zero because the arrow now
+      <em>lies on</em> the axis — nothing stretched.
+    </p>
+    <div class="controls">
+      <div class="control-row">
+        <label class="slider">
+          <span class="slider-label">Arrow angle <strong id="aimAngVal">55°</strong></span>
+          <input id="aimAng" type="range" min="-170" max="170" step="1" value="55" />
+        </label>
+        <label class="slider">
+          <span class="slider-label">Arrow length <strong id="aimLenVal">1.40</strong></span>
+          <input id="aimLen" type="range" min="0.4" max="2.2" step="0.05" value="1.4" />
+        </label>
       </div>
-      <p class="help">Draw a new random Gaussian matrix and recompute the full SVD.</p>
     </div>
-  </div>
+    <div class="grid-2 ellipse-pair">
+      <div class="panel">
+        <h2>Constructed Householder</h2>
+        <canvas id="aimCanvas" width="300" height="300" aria-label="Aim onto axis with constructed mirror"></canvas>
+        <p class="hint" id="aimReadout"></p>
+      </div>
+      <div class="panel">
+        <h2>Hunt with a free mirror</h2>
+        <div class="controls" style="margin-bottom:0.5rem">
+          <div class="control-row">
+            <label class="slider">
+              <span class="slider-label">Your mirror <strong id="huntAngVal">20°</strong></span>
+              <input id="huntAng" type="range" min="-90" max="90" step="1" value="20" />
+            </label>
+            <p class="help">Scrub until the reflected tip hits the $x$-axis. That angle is the Householder.</p>
+          </div>
+        </div>
+        <canvas id="huntCanvas" width="300" height="300" aria-label="Free mirror hunt for zero"></canvas>
+        <p class="hint" id="huntHint"></p>
+      </div>
+    </div>
+  </section>
 
-  <div class="shared">
-    <div class="panel">
-      <h2>Matrix A</h2>
-      <canvas id="A" width="160" height="160"></canvas>
+  <section class="demo-block" aria-label="Larger matrix Householder">
+    <h2>One Householder on a $5\\times 5$</h2>
+    <p class="demo-intro">
+      Same move in higher dimension: aim the first column onto the first axis.
+      You cannot draw the $n$D mirror, but the heatmap and stem plot show the zeros appear under the pivot.
+    </p>
+    <div class="controls">
+      <div class="control-actions">
+        <div class="btns">
+          <button id="hhRegen" type="button">New random $A$</button>
+        </div>
+        <p class="help">Gaussian $5\\times 5$. Left-multiply by one Householder built from column 1.</p>
+      </div>
     </div>
-  </div>
+    <div class="grid-2">
+      <div class="panel">
+        <h2>$A$</h2>
+        <canvas id="hhA" width="160" height="160" aria-label="Heatmap of A"></canvas>
+      </div>
+      <div class="panel">
+        <h2>$HA$</h2>
+        <canvas id="hhHA" width="160" height="160" aria-label="Heatmap of HA"></canvas>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="panel">
+        <h2>Column 1 before</h2>
+        <canvas id="hhStemIn" width="220" height="160" aria-label="Stem plot column 1 before"></canvas>
+      </div>
+      <div class="panel">
+        <h2>Column 1 after</h2>
+        <canvas id="hhStemOut" width="220" height="160" aria-label="Stem plot column 1 after"></canvas>
+      </div>
+    </div>
+  </section>
 
-  <div class="panel" id="svdCol">
-    <h2>Full SVD</h2>
-    <div class="factor-row">
-      <div class="factor"><span>U</span><canvas id="svdU" width="100" height="100"></canvas></div>
-      <div class="factor"><span>σ</span><canvas id="svdS" width="100" height="80"></canvas></div>
-      <div class="factor"><span>V</span><canvas id="svdV" width="100" height="100"></canvas></div>
-      <div class="factor"><span>U diag(σ) Vᵀ</span><canvas id="svdRecon" width="120" height="120"></canvas></div>
+  <section class="demo-block" aria-label="Ellipse under left Householder">
+    <h2>Circle → ellipse under a left reflection</h2>
+    <p class="demo-intro">
+      Under $A$, the unit circle becomes an ellipse (chapter 1).
+      A left Householder $H$ reflects that ellipse; axis lengths stay put.
+      Blend from before to after to see the flip. The image of $(1,0)$ lands on the $x$-axis.
+    </p>
+    <div class="controls">
+      <div class="control-row">
+        <label class="slider">
+          <span class="slider-label">$a_{11}$ <strong id="eA11Val">1.50</strong></span>
+          <input id="eA11" type="range" min="-2.5" max="2.5" step="0.05" value="1.5" />
+        </label>
+        <label class="slider">
+          <span class="slider-label">$a_{12}$ <strong id="eA12Val">1.00</strong></span>
+          <input id="eA12" type="range" min="-2.5" max="2.5" step="0.05" value="1.0" />
+        </label>
+      </div>
+      <div class="control-row">
+        <label class="slider">
+          <span class="slider-label">$a_{21}$ <strong id="eA21Val">0.80</strong></span>
+          <input id="eA21" type="range" min="-2.5" max="2.5" step="0.05" value="0.8" />
+        </label>
+        <label class="slider">
+          <span class="slider-label">$a_{22}$ <strong id="eA22Val">1.20</strong></span>
+          <input id="eA22" type="range" min="-2.5" max="2.5" step="0.05" value="1.2" />
+        </label>
+      </div>
+      <div class="control-row">
+        <label class="slider">
+          <span class="slider-label">Blend $A \\to HA$ <strong id="ellBlendVal">0.00</strong></span>
+          <input id="ellBlend" type="range" min="0" max="1" step="0.01" value="0" />
+        </label>
+        <p class="help">Animation aid — the true Householder is blend $=1$, not a “partial” reflection.</p>
+      </div>
     </div>
-    <p class="note" id="svdErr"></p>
-  </div>
+    <p class="status" id="ellReadout" aria-live="polite"></p>
+    <div class="grid-2 ellipse-pair">
+      <div class="panel">
+        <h2>Unit circle</h2>
+        <canvas id="ellIn" width="300" height="300" aria-label="Unit circle inputs"></canvas>
+        <p class="hint">Inputs of length 1. Orange: $(1,0)$.</p>
+      </div>
+      <div class="panel">
+        <h2>Output ellipse</h2>
+        <canvas id="ellOut" width="300" height="300" aria-label="Blended ellipse after left Householder"></canvas>
+        <p class="hint">Interpolated between $A$'s ellipse and $HA$'s. Stretches unchanged.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="demo-block" aria-label="Left then right steps">
+    <h2>Simplify from both sides</h2>
+    <p class="demo-intro">
+      Left Householder aims column 1 onto the axis. Then a right rotation (Givens) zeros the
+      remaining off-diagonal in $2\\times 2$. What remains on the diagonal are the stretch amounts.
+    </p>
+    <div class="controls">
+      <div class="control-actions">
+        <div class="btns">
+          <button id="stepLeft" type="button">Apply left $H$</button>
+          <button id="stepRight" type="button" class="secondary">Apply right $G$</button>
+          <button id="stepReset" type="button" class="secondary">Reset</button>
+        </div>
+        <p class="help" id="stepHelp">Start from the demo $2\\times 2$. Apply left, then right.</p>
+      </div>
+    </div>
+    <p class="formula" id="stepMatrix" aria-live="polite"></p>
+    <div class="grid-2 ellipse-pair">
+      <div class="panel">
+        <h2>Inputs</h2>
+        <canvas id="stepIn" width="280" height="280" aria-label="Unit circle for step demo"></canvas>
+        <p class="hint">Unit circle. Right multiply reassigns which inputs go where.</p>
+      </div>
+      <div class="panel">
+        <h2>Current map</h2>
+        <canvas id="stepOut" width="280" height="280" aria-label="Ellipse after left/right steps"></canvas>
+        <p class="hint">Left $H$ reflects the ellipse; right $G$ keeps the same output set.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="theory" aria-label="Assemble the product">
+    <h2>Assemble the pieces</h2>
+    <p>
+      The orthogonal maps you applied on the left accumulate into an output reorientation $U$
+      (rotations and reflections). Those on the right accumulate into an input reorientation $V$.
+      The leftover diagonal entries (absolute values) are the stretch amounts $\\sigma_1, \\sigma_2$
+      — the same axis lengths you saw on the ellipse.
+    </p>
+    <div class="math">
+      $$A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$$
+    </div>
+    <p>
+      That is chapter 1’s rotate → stretch → rotate again, written as a product.
+      Reflections are allowed in the outer factors; lengths of the stretches are unchanged.
+    </p>
+  </section>
+
+  <section class="demo-block" aria-label="Any size factors">
+    <h2>Same pieces, any size</h2>
+    <p class="demo-intro">
+      For a random $n\\times n$ matrix the finished factors look the same: two orthogonal matrices
+      and a list of nonnegative stretches. Libraries build them with Householder-style zeros first,
+      then iteration on a simpler form — we show the finished product here.
+    </p>
+    <div class="controls">
+      <div class="control-row">
+        <label class="slider">
+          <span class="slider-label">Size <em>n</em> <strong id="sizeVal">5</strong></span>
+          <input id="size" type="range" min="0" max="10" step="1" value="2" />
+        </label>
+        <p class="help">Side length of random square $A$ (log-spaced stops $3\\ldots 32$).</p>
+      </div>
+      <div class="control-actions">
+        <div class="btns">
+          <button id="regen" type="button">Regenerate $A$</button>
+        </div>
+        <p class="help">New Gaussian matrix; recompute factors and product error.</p>
+      </div>
+    </div>
+    <div class="shared">
+      <div class="panel">
+        <h2>Matrix $A$</h2>
+        <canvas id="A" width="160" height="160"></canvas>
+      </div>
+    </div>
+    <div class="panel" id="svdCol">
+      <h2>Factors of $A$</h2>
+      <div class="factor-row">
+        <div class="factor"><span>Output $U$</span><canvas id="svdU" width="100" height="100"></canvas></div>
+        <div class="factor"><span>Stretches</span><canvas id="svdS" width="100" height="80"></canvas></div>
+        <div class="factor"><span>Input $V$</span><canvas id="svdV" width="100" height="100"></canvas></div>
+        <div class="factor"><span>Product</span><canvas id="svdRecon" width="120" height="120"></canvas></div>
+      </div>
+      <p class="note" id="svdErr"></p>
+    </div>
+  </section>
+
+  <section class="theory" aria-label="Name">
+    <h2>What people call this</h2>
+    <p>
+      This factorization is the
+      <a href="https://en.wikipedia.org/wiki/Singular_value_decomposition" target="_blank" rel="noopener noreferrer">singular value decomposition</a>
+      (SVD). The stretch amounts $\\sigma_j$ are the <strong>singular values</strong>.
+      Nothing new was added — only a name for the three-piece story you already checked with mirrors.
+    </p>
+  </section>
 
   <section class="conclusion" id="conclusion" aria-label="Summary">
     <h2>In short</h2>
     <p>
-      The SVD is the name for factoring any matrix into rotate–stretch–rotate:
-      $A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$.
-      The singular values $\\sigma$ are the stretch amounts.
+      Reflections preserve lengths like rotations. A Householder chooses a mirror so a column lands
+      on an axis — that introduces zeros. Left and right orthogonal maps simplify $A$ until the
+      diagonal holds the stretch amounts; the accumulated maps are the outer factors.
+      Written $A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$, that package is the SVD.
     </p>
     <p class="next-chapter">
-      <a href="./truncate.html">Keeping only some of the stretches →</a>
+      Next you can keep only the largest stretches and drop the rest.
+      <a href="./truncate.html">Continue →</a>
     </p>
   </section>
 `;
 
+/* ── DOM refs ─────────────────────────────────────────────────────────── */
+
 const el = {
+  mirAng: app.querySelector<HTMLInputElement>("#mirAng")!,
+  mirAngVal: app.querySelector<HTMLElement>("#mirAngVal")!,
+  mirIn: app.querySelector<HTMLCanvasElement>("#mirIn")!,
+  mirOut: app.querySelector<HTMLCanvasElement>("#mirOut")!,
+
+  aimAng: app.querySelector<HTMLInputElement>("#aimAng")!,
+  aimAngVal: app.querySelector<HTMLElement>("#aimAngVal")!,
+  aimLen: app.querySelector<HTMLInputElement>("#aimLen")!,
+  aimLenVal: app.querySelector<HTMLElement>("#aimLenVal")!,
+  aimCanvas: app.querySelector<HTMLCanvasElement>("#aimCanvas")!,
+  aimReadout: app.querySelector<HTMLElement>("#aimReadout")!,
+  huntAng: app.querySelector<HTMLInputElement>("#huntAng")!,
+  huntAngVal: app.querySelector<HTMLElement>("#huntAngVal")!,
+  huntCanvas: app.querySelector<HTMLCanvasElement>("#huntCanvas")!,
+  huntHint: app.querySelector<HTMLElement>("#huntHint")!,
+
+  hhRegen: app.querySelector<HTMLButtonElement>("#hhRegen")!,
+  hhA: app.querySelector<HTMLCanvasElement>("#hhA")!,
+  hhHA: app.querySelector<HTMLCanvasElement>("#hhHA")!,
+  hhStemIn: app.querySelector<HTMLCanvasElement>("#hhStemIn")!,
+  hhStemOut: app.querySelector<HTMLCanvasElement>("#hhStemOut")!,
+
+  eA11: app.querySelector<HTMLInputElement>("#eA11")!,
+  eA12: app.querySelector<HTMLInputElement>("#eA12")!,
+  eA21: app.querySelector<HTMLInputElement>("#eA21")!,
+  eA22: app.querySelector<HTMLInputElement>("#eA22")!,
+  eA11Val: app.querySelector<HTMLElement>("#eA11Val")!,
+  eA12Val: app.querySelector<HTMLElement>("#eA12Val")!,
+  eA21Val: app.querySelector<HTMLElement>("#eA21Val")!,
+  eA22Val: app.querySelector<HTMLElement>("#eA22Val")!,
+  ellBlend: app.querySelector<HTMLInputElement>("#ellBlend")!,
+  ellBlendVal: app.querySelector<HTMLElement>("#ellBlendVal")!,
+  ellIn: app.querySelector<HTMLCanvasElement>("#ellIn")!,
+  ellOut: app.querySelector<HTMLCanvasElement>("#ellOut")!,
+  ellReadout: app.querySelector<HTMLElement>("#ellReadout")!,
+
+  stepLeft: app.querySelector<HTMLButtonElement>("#stepLeft")!,
+  stepRight: app.querySelector<HTMLButtonElement>("#stepRight")!,
+  stepReset: app.querySelector<HTMLButtonElement>("#stepReset")!,
+  stepHelp: app.querySelector<HTMLElement>("#stepHelp")!,
+  stepMatrix: app.querySelector<HTMLElement>("#stepMatrix")!,
+  stepIn: app.querySelector<HTMLCanvasElement>("#stepIn")!,
+  stepOut: app.querySelector<HTMLCanvasElement>("#stepOut")!,
+
   size: app.querySelector<HTMLInputElement>("#size")!,
   sizeVal: app.querySelector<HTMLElement>("#sizeVal")!,
   regen: app.querySelector<HTMLButtonElement>("#regen")!,
@@ -132,7 +395,505 @@ const el = {
   svdErr: app.querySelector<HTMLParagraphElement>("#svdErr")!,
 };
 
-/** Log-spaced matrix sizes for the n slider (index → n). */
+/* ── Canvas helpers ────────────────────────────────────────────────────── */
+
+function toCanvas(
+  cx: number,
+  cy: number,
+  scale: number,
+  x: number,
+  y: number,
+): [number, number] {
+  return [cx + x * scale, cy - y * scale];
+}
+
+function drawAxes(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  scale: number,
+  worldR: number,
+): void {
+  const r = worldR * scale;
+  ctx.strokeStyle = MUTED;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(cx - r, cy);
+  ctx.lineTo(cx + r, cy);
+  ctx.moveTo(cx, cy - r);
+  ctx.lineTo(cx, cy + r);
+  ctx.stroke();
+}
+
+function drawArrow(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  scale: number,
+  x: number,
+  y: number,
+  color: string,
+  label: string,
+): void {
+  const [x0, y0] = toCanvas(cx, cy, scale, 0, 0);
+  const [x1, y1] = toCanvas(cx, cy, scale, x, y);
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const len = Math.hypot(dx, dy);
+  if (len < 2) return;
+  const ux = dx / len;
+  const uy = dy / len;
+  const head = 9;
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 2.25;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(x1, y1);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x1 - head * ux + 0.5 * head * uy, y1 - head * uy - 0.5 * head * ux);
+  ctx.lineTo(x1 - head * ux - 0.5 * head * uy, y1 - head * uy + 0.5 * head * ux);
+  ctx.closePath();
+  ctx.fill();
+  if (label) {
+    ctx.font = "600 12px DM Sans, system-ui, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText(label, x1 + 7 * ux, y1 + 7 * uy);
+  }
+}
+
+function drawCurve(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  scale: number,
+  sample: (t: number) => [number, number],
+  color: string,
+  width = 2,
+): void {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  for (let i = 0; i <= 180; i++) {
+    const t = (i / 180) * Math.PI * 2;
+    const [x, y] = sample(t);
+    const [px, py] = toCanvas(cx, cy, scale, x, y);
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.stroke();
+}
+
+function drawMirrorLine(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  scale: number,
+  lineAngleDeg: number,
+  worldR: number,
+): void {
+  const th = (lineAngleDeg * Math.PI) / 180;
+  const dx = Math.cos(th);
+  const dy = Math.sin(th);
+  const r = worldR * 1.15;
+  const [x0, y0] = toCanvas(cx, cy, scale, -r * dx, -r * dy);
+  const [x1, y1] = toCanvas(cx, cy, scale, r * dx, r * dy);
+  ctx.strokeStyle = MIRROR;
+  ctx.lineWidth = 2.5;
+  ctx.setLineDash([6, 5]);
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(x1, y1);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function paintCanvas(
+  canvas: HTMLCanvasElement,
+  worldR: number,
+  drawContent: (ctx: CanvasRenderingContext2D, cx: number, cy: number, scale: number) => void,
+): void {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const css = canvas.clientWidth || canvas.width || 200;
+  canvas.width = Math.round(css * dpr);
+  canvas.height = Math.round(css * dpr);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const w = css;
+  ctx.clearRect(0, 0, w, w);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, w, w);
+  const cx = w / 2;
+  const cy = w / 2;
+  const scale = (0.4 * w) / worldR;
+  drawAxes(ctx, cx, cy, scale, worldR);
+  drawContent(ctx, cx, cy, scale);
+}
+
+function drawStem(
+  canvas: HTMLCanvasElement,
+  values: number[],
+  color: string,
+): void {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const cssW = canvas.clientWidth || canvas.width || 220;
+  const cssH = canvas.clientHeight || canvas.height || 160;
+  canvas.width = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssW, cssH);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, cssW, cssH);
+
+  const padL = 28;
+  const padR = 12;
+  const padT = 12;
+  const padB = 28;
+  const plotW = cssW - padL - padR;
+  const plotH = cssH - padT - padB;
+  const maxAbsV = Math.max(...values.map((v) => Math.abs(v)), 1e-6);
+  const midY = padT + plotH / 2;
+  const n = values.length;
+  const gap = plotW / Math.max(n, 1);
+
+  ctx.strokeStyle = MUTED;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padL, midY);
+  ctx.lineTo(padL + plotW, midY);
+  ctx.stroke();
+
+  ctx.font = "600 11px DM Sans, system-ui, sans-serif";
+  ctx.textAlign = "center";
+  for (let i = 0; i < n; i++) {
+    const x = padL + gap * (i + 0.5);
+    const h = (values[i] / maxAbsV) * (plotH * 0.42);
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x, midY);
+    ctx.lineTo(x, midY - h);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, midY - h, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = MUTED;
+    ctx.fillText(String(i + 1), x, cssH - 8);
+  }
+}
+
+function normalFromLineAngle(lineAngleDeg: number): [number, number] {
+  const nAng = ((lineAngleDeg + 90) * Math.PI) / 180;
+  return [Math.cos(nAng), Math.sin(nAng)];
+}
+
+function fmt(x: number, d = 2): string {
+  return x.toFixed(d);
+}
+
+function clamp(x: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, x));
+}
+
+/* ── Free mirror ───────────────────────────────────────────────────────── */
+
+const SAMPLE_ARROWS: [number, number, string, string][] = [
+  [1, 0, ACCENT2, "(1,0)"],
+  [0, 1, ACCENT, "(0,1)"],
+  [0.7, 0.7, INK, ""],
+];
+
+function paintMirror(): void {
+  const ang = Number(el.mirAng.value);
+  el.mirAngVal.textContent = `${ang}°`;
+  const [nx, ny] = normalFromLineAngle(ang);
+  const H = householderFromNormal(nx, ny);
+
+  paintCanvas(el.mirIn, 1.4, (ctx, cx, cy, scale) => {
+    drawMirrorLine(ctx, cx, cy, scale, ang, 1.4);
+    drawCurve(ctx, cx, cy, scale, (t) => [Math.cos(t), Math.sin(t)], INK);
+    for (const [x, y, c, lab] of SAMPLE_ARROWS) {
+      drawArrow(ctx, cx, cy, scale, x, y, c, lab);
+    }
+  });
+
+  paintCanvas(el.mirOut, 1.4, (ctx, cx, cy, scale) => {
+    drawMirrorLine(ctx, cx, cy, scale, ang, 1.4);
+    drawCurve(
+      ctx,
+      cx,
+      cy,
+      scale,
+      (t) => reflectAcrossNormal(Math.cos(t), Math.sin(t), nx, ny),
+      INK,
+    );
+    for (const [x, y, c, lab] of SAMPLE_ARROWS) {
+      const [rx, ry] = applyMat2(H, x, y);
+      drawArrow(ctx, cx, cy, scale, rx, ry, c, lab ? `H${lab}` : "");
+    }
+  });
+}
+
+/* ── Aim onto axis ─────────────────────────────────────────────────────── */
+
+function aimVector(): [number, number] {
+  const th = (Number(el.aimAng.value) * Math.PI) / 180;
+  const len = Number(el.aimLen.value);
+  return [len * Math.cos(th), len * Math.sin(th)];
+}
+
+function paintAim(): void {
+  const ang = Number(el.aimAng.value);
+  const len = Number(el.aimLen.value);
+  el.aimAngVal.textContent = `${ang}°`;
+  el.aimLenVal.textContent = fmt(len);
+
+  const [ax, ay] = aimVector();
+  const aimed = householderAimToE1(ax, ay);
+  const worldR = Math.max(2.0, aimed.normA * 1.25);
+
+  paintCanvas(el.aimCanvas, worldR, (ctx, cx, cy, scale) => {
+    drawMirrorLine(ctx, cx, cy, scale, aimed.mirrorAngleDeg, worldR);
+    // Segment a → target (bisected by mirror)
+    const [sx, sy] = toCanvas(cx, cy, scale, ax, ay);
+    const [tx, ty] = toCanvas(cx, cy, scale, aimed.targetX, aimed.targetY);
+    ctx.strokeStyle = MUTED;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(tx, ty);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    drawArrow(ctx, cx, cy, scale, ax, ay, ACCENT2, "a");
+    drawArrow(ctx, cx, cy, scale, aimed.targetX, aimed.targetY, ACCENT, "target");
+    const [hx, hy] = applyMat2(aimed.H, ax, ay);
+    drawArrow(ctx, cx, cy, scale, hx, hy, INK, "Ha");
+  });
+
+  el.aimReadout.textContent =
+    `‖a‖ = ${fmt(aimed.normA, 3)}. Mirror ≈ ${fmt(aimed.mirrorAngleDeg, 1)}°. ` +
+    `Ha ≈ (${fmt(aimed.targetX, 3)}, ${fmt(0, 3)}).`;
+
+  // Hunt
+  const hunt = Number(el.huntAng.value);
+  el.huntAngVal.textContent = `${hunt}°`;
+  const [hnx, hny] = normalFromLineAngle(hunt);
+  const [rx, ry] = reflectAcrossNormal(ax, ay, hnx, hny);
+  const onAxis = Math.abs(ry) < 0.04 * Math.max(aimed.normA, 1);
+
+  paintCanvas(el.huntCanvas, worldR, (ctx, cx, cy, scale) => {
+    drawMirrorLine(ctx, cx, cy, scale, hunt, worldR);
+    drawArrow(ctx, cx, cy, scale, ax, ay, ACCENT2, "a");
+    drawArrow(ctx, cx, cy, scale, rx, ry, ACCENT, "reflected");
+  });
+
+  const delta = Math.abs(hunt - aimed.mirrorAngleDeg);
+  const deltaAlt = Math.min(delta, Math.abs(delta - 180), Math.abs(delta + 180));
+  el.huntHint.textContent = onAxis
+    ? `Reflected y ≈ ${fmt(ry, 3)} — on the axis. Mirror matches the Householder.`
+    : `Reflected y ≈ ${fmt(ry, 3)}. Closest Householder mirror ≈ ${fmt(aimed.mirrorAngleDeg, 1)}° (Δ ${fmt(deltaAlt, 1)}°).`;
+}
+
+/* ── 5×5 Householder ───────────────────────────────────────────────────── */
+
+let hhMat: Matrix;
+let hhHA: Matrix;
+
+function regenHH(): void {
+  hhMat = randomNormal(5, 5, 1);
+  const H = householderAimColumn(columnOf(hhMat, 0));
+  hhHA = applyLeft(H, hhMat);
+  paintHH();
+}
+
+function paintHH(): void {
+  const scale = Math.max(maxAbs(hhMat), maxAbs(hhHA), 1e-6);
+  drawHeatmap(el.hhA, hhMat, scale);
+  drawHeatmap(el.hhHA, hhHA, scale);
+  drawStem(el.hhStemIn, columnOf(hhMat, 0), ACCENT2);
+  drawStem(el.hhStemOut, columnOf(hhHA, 0), ACCENT);
+}
+
+/* ── Ellipse under left HH ─────────────────────────────────────────────── */
+
+function readEllipseA(): Matrix {
+  return fromNested([
+    [Number(el.eA11.value), Number(el.eA12.value)],
+    [Number(el.eA21.value), Number(el.eA22.value)],
+  ]);
+}
+
+function syncEllipseLabels(): void {
+  el.eA11Val.textContent = fmt(Number(el.eA11.value));
+  el.eA12Val.textContent = fmt(Number(el.eA12.value));
+  el.eA21Val.textContent = fmt(Number(el.eA21.value));
+  el.eA22Val.textContent = fmt(Number(el.eA22.value));
+  el.ellBlendVal.textContent = fmt(Number(el.ellBlend.value));
+}
+
+function paintEllipse(): void {
+  syncEllipseLabels();
+  const A = readEllipseA();
+  const col = columnOf(A, 0);
+  const { H } = householderAimToE1(col[0], col[1]);
+  const HA = applyLeft(H, A);
+  const t = Number(el.ellBlend.value);
+  const fA = frameFromMatrix(A);
+  const fHA = frameFromMatrix(HA);
+  const [s1, s2] = fA.sigma;
+  const outR = Math.max(fA.outScale, fHA.outScale);
+
+  paintCanvas(el.ellIn, 1.35, (ctx, cx, cy, scale) => {
+    drawCurve(ctx, cx, cy, scale, (u) => [Math.cos(u), Math.sin(u)], INK);
+    drawArrow(ctx, cx, cy, scale, 1, 0, ACCENT2, "(1,0)");
+    drawArrow(ctx, cx, cy, scale, 0, 1, ACCENT, "(0,1)");
+  });
+
+  paintCanvas(el.ellOut, outR, (ctx, cx, cy, scale) => {
+    drawCurve(
+      ctx,
+      cx,
+      cy,
+      scale,
+      (u) => {
+        const c = Math.cos(u);
+        const s = Math.sin(u);
+        const aPt = applyMat2(A, c, s);
+        const hPt = applyMat2(HA, c, s);
+        return [
+          aPt[0] * (1 - t) + hPt[0] * t,
+          aPt[1] * (1 - t) + hPt[1] * t,
+        ];
+      },
+      INK,
+    );
+    const a10 = applyMat2(A, 1, 0);
+    const h10 = applyMat2(HA, 1, 0);
+    const ix = a10[0] * (1 - t) + h10[0] * t;
+    const iy = a10[1] * (1 - t) + h10[1] * t;
+    drawArrow(ctx, cx, cy, scale, ix, iy, ACCENT2, "A(1,0)→");
+    if (t > 0.85) {
+      drawArrow(ctx, cx, cy, scale, h10[0], h10[1], ACCENT, "HA(1,0)");
+    }
+  });
+
+  el.ellReadout.textContent =
+    `Stretch amounts σ ≈ ${fmt(s1, 3)}, ${fmt(s2, 3)} — unchanged by left H ` +
+    `(HA has σ ≈ ${fmt(fHA.sigma[0], 3)}, ${fmt(fHA.sigma[1], 3)}). ` +
+    `At blend 1, image of (1,0) lies on the x-axis.`;
+}
+
+/* ── Left / right steps ────────────────────────────────────────────────── */
+
+let stepM: Matrix;
+let stepPhase: "start" | "left" | "done" = "start";
+
+function fmtMat2(M: Matrix): string {
+  return (
+    `$$\\begin{pmatrix}` +
+    `${fmt(get(M, 0, 0), 3)} & ${fmt(get(M, 0, 1), 3)} \\\\ ` +
+    `${fmt(get(M, 1, 0), 3)} & ${fmt(get(M, 1, 1), 3)}` +
+    `\\end{pmatrix}$$`
+  );
+}
+
+function resetSteps(): void {
+  stepM = copy(demoMatrix2());
+  stepPhase = "start";
+  el.stepHelp.textContent = "Start from the demo 2×2. Apply left H, then right G.";
+  el.stepLeft.disabled = false;
+  el.stepRight.disabled = true;
+  paintSteps();
+  void window.MathJax?.typesetPromise?.([el.stepMatrix]);
+}
+
+function paintSteps(): void {
+  const f = frameFromMatrix(stepM);
+  const outR = f.outScale;
+
+  paintCanvas(el.stepIn, 1.35, (ctx, cx, cy, scale) => {
+    drawCurve(ctx, cx, cy, scale, (u) => [Math.cos(u), Math.sin(u)], INK);
+    drawArrow(ctx, cx, cy, scale, 1, 0, ACCENT2, "(1,0)");
+    drawArrow(ctx, cx, cy, scale, 0, 1, ACCENT, "(0,1)");
+  });
+
+  paintCanvas(el.stepOut, outR, (ctx, cx, cy, scale) => {
+    drawCurve(
+      ctx,
+      cx,
+      cy,
+      scale,
+      (u) => applyMat2(stepM, Math.cos(u), Math.sin(u)),
+      INK,
+    );
+    const [s1, s2] = f.sigma;
+    drawArrow(
+      ctx,
+      cx,
+      cy,
+      scale,
+      get(f.U, 0, 0) * s1,
+      get(f.U, 1, 0) * s1,
+      ACCENT2,
+      "σ₁",
+    );
+    if (s2 > 1e-6) {
+      drawArrow(
+        ctx,
+        cx,
+        cy,
+        scale,
+        get(f.U, 0, 1) * s2,
+        get(f.U, 1, 1) * s2,
+        ACCENT,
+        "σ₂",
+      );
+    }
+  });
+
+  const phaseLabel =
+    stepPhase === "start"
+      ? "Current $A$"
+      : stepPhase === "left"
+        ? "After left $H$"
+        : "After left $H$ and right $G$";
+  el.stepMatrix.innerHTML = `${phaseLabel}: ${fmtMat2(stepM)}`;
+}
+
+function doStepLeft(): void {
+  if (stepPhase !== "start") return;
+  const { H } = householderAimToE1(get(stepM, 0, 0), get(stepM, 1, 0));
+  stepM = applyLeft(H, stepM);
+  stepPhase = "left";
+  el.stepHelp.textContent = "Column 1 on the axis. Next: right Givens to zero the (1,2) entry.";
+  el.stepLeft.disabled = true;
+  el.stepRight.disabled = false;
+  paintSteps();
+  void window.MathJax?.typesetPromise?.([el.stepMatrix]);
+}
+
+function doStepRight(): void {
+  if (stepPhase !== "left") return;
+  const G = rightGivensZeroSuperdiag(stepM);
+  stepM = applyRight(stepM, G);
+  stepPhase = "done";
+  el.stepHelp.textContent =
+    "Nearly diagonal — absolute diagonal entries match the ellipse stretches.";
+  el.stepRight.disabled = true;
+  paintSteps();
+  void window.MathJax?.typesetPromise?.([el.stepMatrix]);
+}
+
+/* ── Any-size SVD heatmaps ─────────────────────────────────────────────── */
+
 const SIZE_STOPS = [3, 4, 5, 6, 8, 10, 12, 16, 20, 24, 32];
 
 let A: Matrix;
@@ -141,16 +902,8 @@ let svdReconMat: Matrix;
 let sharedScale = 1;
 let sigmaScale = 1;
 
-function clamp(x: number, lo: number, hi: number): number {
-  return Math.max(lo, Math.min(hi, x));
-}
-
 function sizeFromSlider(): number {
-  const i = clamp(
-    Math.round(Number(el.size.value) || 0),
-    0,
-    SIZE_STOPS.length - 1,
-  );
+  const i = clamp(Math.round(Number(el.size.value) || 0), 0, SIZE_STOPS.length - 1);
   el.size.value = String(i);
   return SIZE_STOPS[i];
 }
@@ -169,24 +922,54 @@ function recompute(newA: boolean): void {
   svdReconMat = reconstruct(svd.U, svd.sigma, svd.V);
   sharedScale = Math.max(maxAbs(A), maxAbs(svdReconMat), 1e-6);
   sigmaScale = Math.max(...svd.sigma, 1e-6);
-  paint();
+  paintSvd();
 }
 
-function paint(): void {
+function paintSvd(): void {
   drawHeatmap(el.A, A, sharedScale);
   drawHeatmap(el.svdU, svd.U);
   drawHeatmap(el.svdV, svd.V);
   drawSigmaBars(el.svdS, svd.sigma, sigmaScale);
   drawHeatmap(el.svdRecon, svdReconMat, sharedScale);
   const err = frobeniusSq(sub(A, svdReconMat));
-  el.svdErr.textContent = `‖A − U diag(σ) Vᵀ‖_F² = ${err.toExponential(3)}`;
+  el.svdErr.textContent = `‖A − product‖_F² = ${err.toExponential(3)}`;
 }
+
+/* ── Master paint + listeners ──────────────────────────────────────────── */
+
+function paintAll(): void {
+  paintMirror();
+  paintAim();
+  paintHH();
+  paintEllipse();
+  paintSteps();
+  paintSvd();
+}
+
+el.mirAng.addEventListener("input", paintMirror);
+
+el.aimAng.addEventListener("input", paintAim);
+el.aimLen.addEventListener("input", paintAim);
+el.huntAng.addEventListener("input", paintAim);
+
+el.hhRegen.addEventListener("click", regenHH);
+
+for (const input of [el.eA11, el.eA12, el.eA21, el.eA22, el.ellBlend]) {
+  input.addEventListener("input", paintEllipse);
+}
+
+el.stepLeft.addEventListener("click", doStepLeft);
+el.stepRight.addEventListener("click", doStepRight);
+el.stepReset.addEventListener("click", resetSteps);
 
 el.regen.addEventListener("click", () => recompute(true));
 el.size.addEventListener("input", () => recompute(true));
 
+regenHH();
+resetSteps();
 syncSliderLabels();
 recompute(true);
+paintAll();
 
 void window.MathJax?.typesetPromise?.([app]).catch(() => {
   const t = window.setInterval(() => {

@@ -180,8 +180,8 @@ app.innerHTML = `
   <section class="movie-block" aria-label="Rotate stretch rotate">
     <h2>A clean description of $A$: rotate, stretch, rotate</h2>
     <p class="demo-intro">
-      The same two pieces you met above, composed. For <em>your</em> matrix: re-aim ($V^{\\top}$),
-      stretch by $\\sigma_1$ and $\\sigma_2$, re-aim again ($U$).
+      The same two pieces you met above, composed. For <em>your</em> matrix: rotate ($V^{\\top}$),
+      stretch by $\\sigma_1$ and $\\sigma_2$, rotate again ($U$).
     </p>
     <div class="movie-row" id="movieRow">
       <div class="panel movie-panel">
@@ -190,7 +190,7 @@ app.innerHTML = `
         <p class="hint">Unit circle with special directions $v_1$, $v_2$.</p>
       </div>
       <div class="panel movie-panel">
-        <h2>2 · Re-aim ($V^{\\top}$)</h2>
+        <h2>2 · Rotate ($V^{\\top}$)</h2>
         <canvas id="mv1" width="200" height="200" aria-label="After V transpose"></canvas>
         <p class="hint">Those arrows rotate onto the coordinate axes.</p>
       </div>
@@ -200,7 +200,7 @@ app.innerHTML = `
         <p class="hint">Axis arrows lengthen to $\\sigma_1$, $\\sigma_2$.</p>
       </div>
       <div class="panel movie-panel">
-        <h2>4 · Re-aim ($U$)</h2>
+        <h2>4 · Rotate ($U$)</h2>
         <canvas id="mv3" width="200" height="200" aria-label="After U"></canvas>
         <p class="hint">Rotate the stretched arrows to the final ellipse.</p>
       </div>
@@ -240,14 +240,14 @@ app.innerHTML = `
       </div>
       <div class="control-row">
         <label class="slider">
-          <span class="slider-label">Input twist ($V$) <strong id="thVVal">25°</strong></span>
+          <span class="slider-label">Input rotation ($V$) <strong id="thVVal">25°</strong></span>
           <input id="thV" type="range" min="-90" max="90" step="1" value="25" />
         </label>
         <p class="help">Which circle directions get the long vs short stretch.</p>
       </div>
       <div class="control-row">
         <label class="slider">
-          <span class="slider-label">Output twist ($U$) <strong id="thUVal">40°</strong></span>
+          <span class="slider-label">Output rotation ($U$) <strong id="thUVal">40°</strong></span>
           <input id="thU" type="range" min="-90" max="90" step="1" value="40" />
         </label>
         <p class="help">Which way the finished ellipse points.</p>
@@ -278,26 +278,18 @@ app.innerHTML = `
     </div>
   </section>
 
-  <section class="conclusion" id="conclusion" aria-label="Conclusion">
-    <h2>What you learned</h2>
+  <section class="conclusion" id="conclusion" aria-label="Summary">
+    <h2>In short</h2>
     <p>
-      A $2\\times 2$ matrix is a linear transformation: it sends each vector $x$ to $Ax$.
-      Two simple cases make the geometry obvious — <strong>rotation</strong> (directions move, lengths stay)
-      and <strong>stretch</strong> (axis lengths change, the unit circle becomes an ellipse).
-      A general matrix is always those pieces composed: rotate, stretch by
-      $\\sigma_1$ and $\\sigma_2$, rotate again. That factorization is the SVD; the stretch amounts
-      are the singular values.
+      Rotation moves directions without changing lengths; stretch changes lengths along the axes.
+      The SVD is the claim that every matrix factors into those operations:
+      rotate, stretch by $\\sigma_1$ and $\\sigma_2$, rotate again —
+      written $A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$.
+      The singular values $\\sigma_1 \\ge \\sigma_2 \\ge 0$ are how hard $A$ stretches
+      in its strongest and weakest directions.
     </p>
-    <ul class="example-bullets">
-      <li>Rotation and stretch are the building blocks; the unit-circle picture shows what each does.</li>
-      <li>$A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$ — same idea for every nonsingular $2\\times 2$ matrix.</li>
-      <li>$\\sigma_1 \\ge \\sigma_2 \\ge 0$ are how hard $A$ stretches in its strongest and weakest directions.</li>
-    </ul>
     <p class="next-chapter">
-      <strong>Next:</strong>
-      once you have many singular values, you can keep only the largest ones and throw the rest away —
-      that is truncated SVD, and it is the start of compression.
-      <a href="./truncate.html">A matrix from its top k pieces →</a>
+      <a href="./truncate.html">Same factorization, larger matrices →</a>
     </p>
   </section>
 `;

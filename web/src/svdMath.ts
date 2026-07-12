@@ -26,19 +26,19 @@ app.innerHTML = `
       prev: { href: "./", label: "← Matrix" },
       next: { href: "./faces.html", label: "Next →" },
     })}
-    <h1>A matrix from its top k pieces</h1>
+    <h1>Same factorization, larger matrices</h1>
     <p class="repo">
       <a href="https://github.com/jmalicki/svd-to-vae" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
     </p>
     <p class="lede">
-      You just saw how to read a $2\\times 2$ matrix as a linear transformation:
-      singular values are the stretch amounts in the unit-circle picture.
-      The same factorization works for any matrix — $A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$ with
+      The $2\\times 2$ picture was rotate–stretch–rotate. The same factorization works for any size:
+      $A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$ with
       <a href="https://en.wikipedia.org/wiki/Orthonormality" target="_blank" rel="noopener noreferrer">orthonormal</a>
-      $U$, $V$ and nonnegative $\\sigma$.
-      <strong>Truncated SVD</strong> keeps only the top $k$ components and rebuilds an approximation
-      $\\hat A_k = U_k\\,\\mathrm{diag}(\\sigma)\\,V_k^{\\top}$ — throw away the small stretches first.
+      $U$, $V$ and nonnegative singular values $\\sigma$.
+      Once you have many $\\sigma$'s, you can keep only the largest $k$ and rebuild an approximation
+      $\\hat A_k = U_k\\,\\mathrm{diag}(\\sigma)\\,V_k^{\\top}$ — that is truncated SVD.
     </p>
+
   </header>
 
   <section class="theory" aria-label="Truncated SVD">

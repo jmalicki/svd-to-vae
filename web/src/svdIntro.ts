@@ -53,9 +53,10 @@ app.innerHTML = `
       <a href="https://github.com/jmalicki/svd-to-vae" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
     </p>
     <p class="lede">
-      Chapter 1 used <strong>rotations</strong> — length-preserving maps that never flip orientation.
-      Reflections are the other basic length-preserving move. We will write the operator as math,
-      watch what each symbol means in the plane, then use that same $H$ on purpose.
+      Often you want a vector — or a matrix column — lined up with a coordinate axis:
+      one nonzero entry, the rest zero, length unchanged. A reflection can do that in one step.
+      This page builds that operator from scratch, then uses it to clear zeros under a pivot
+      and read the stretches that remain.
     </p>
   </header>
 
@@ -148,11 +149,18 @@ app.innerHTML = `
   </section>
 
   <section class="demo-block" aria-label="Aim onto axis">
-    <h2>Which $n$ sends $a$ onto the axis?</h2>
+    <h2>Why aim onto an axis?</h2>
     <p class="demo-intro">
-      Now pick the target on purpose: we want $Ha = (\\|a\\|, 0)$ — a zero in the second coordinate,
-      length unchanged. That choice of reflection is a <strong>Householder</strong>.
-      Find $n$ with the slider; then we write how $n$ is built from $a$.
+      Suppose you have a vector $a$ pointing every which way, and you wish it lined up with the
+      first coordinate axis — all other coordinates zero — <em>without</em> changing its length.
+      Then later algebra only has to care about one number ($\\|a\\|$) instead of a whole list of
+      coupled entries. A reflection can do exactly that: pick the target
+      $t = (\\|a\\|, 0)$ and find $n$ so $Ha = t$. People call that choice a Householder reflection;
+      the point is the goal, not the name.
+    </p>
+    <p class="demo-intro">
+      Find such an $n$ with the slider. Afterward we write the formula that builds $n$ from $a$
+      and $t$ automatically.
     </p>
     <div class="controls">
       <div class="control-row">
@@ -192,7 +200,7 @@ app.innerHTML = `
         <strong class="hunt-meter-val" id="huntMeterVal">—</strong>
       </div>
       <canvas id="huntCanvas" width="360" height="360" aria-label="Find n so Ha is on axis"></canvas>
-      <p class="hunt-banner" id="huntBanner" hidden>$Ha$ is on the axis — this $n$ is the Householder normal.</p>
+      <p class="hunt-banner" id="huntBanner" hidden>$Ha$ is on the axis — one number left, the rest are zeros.</p>
       <p class="hint" id="huntHint"></p>
     </div>
 
@@ -217,18 +225,20 @@ app.innerHTML = `
   </section>
 
   <section class="demo-block" aria-label="Larger matrix Householder">
-    <h2>One Householder on a $5\\times 5$</h2>
+    <h2>Same idea on a matrix column</h2>
     <p class="demo-intro">
-      Same construction in higher dimension: build $H = I - 2nn^{\\top}$ from the first column
-      so that column becomes $(\\pm\\|\\mathrm{col}_1\\|, 0, \\ldots, 0)$. The heatmap and stem plot
-      show those zeros — the $n$D mirror is not drawn, but the algebra is the same.
+      A matrix column is just a taller vector. If you want the first column of $A$ to look like
+      $(\\|\\mathrm{col}_1\\|, 0, \\ldots, 0)^{\\top}$ — zeros under the pivot, length kept — apply one
+      reflection $H$ built from that column and replace $A$ by $HA$. Everything else in $A$ moves
+      too (same $H$ on every column), but you bought a simpler first column. The heatmap and stem
+      plot show the zeros; the $n$D mirror is not drawn.
     </p>
     <div class="controls">
       <div class="control-actions">
         <div class="btns">
           <button id="hhRegen" type="button">New random $A$</button>
         </div>
-        <p class="help">Gaussian $5\\times 5$. Left-multiply by one Householder built from column 1.</p>
+        <p class="help">Gaussian $5\\times 5$. Build $H$ from column 1 and form $HA$.</p>
       </div>
     </div>
     <div class="grid-2">

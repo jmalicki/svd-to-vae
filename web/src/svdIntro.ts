@@ -123,13 +123,13 @@ app.innerHTML = `
             $$x_{n} = (n^{\\top}x)\\,n$$
           </div>
           <p>
-            is that piece of $x$ (green in the figure). What remains,
+            is that piece of $x$ (magenta dashed in the figure). What remains,
             $x_{\\parallel} = x - x_{n}$, lies in the mirror (purple). So
             $x = x_{\\parallel} + x_{n}$ — the usual split into a part along $n$ and a part
             orthogonal to $n$.
           </p>
           <canvas id="build2" width="300" height="300" aria-label="Decompose x"></canvas>
-          <p class="hint">Blue = $x$. Purple = $x_{\\parallel}$. Green = $x_n = (n^{\\top}x)\\,n$.</p>
+          <p class="hint">Blue = $x$. Purple = $x_{\\parallel}$. Magenta dashed = $x_n$ (construction piece along $n$).</p>
         </div>
 
         <div class="panel">
@@ -804,6 +804,8 @@ function clamp(x: number, lo: number, hi: number): number {
 /* ── Build reflection operator ─────────────────────────────────────────── */
 
 const NORMAL_COLOR = "#009E73";
+/** Normal *component* xₙ — distinct from the unit normal n (green). */
+const XN_COLOR = "#CC79A7";
 const DECOMP_COLOR = "#7B2D8E";
 
 let mirrorDial: ReturnType<typeof mountAngleDial>;
@@ -847,22 +849,24 @@ function paintBuild(): void {
   paintCanvas(el.build2, extent, (ctx, cx, cy, scale) => {
     drawMirrorLine(ctx, cx, cy, scale, ang, extent);
     drawArrow(ctx, cx, cy, scale, xp, yp, DECOMP_COLOR, "x∥");
+    // Dashed stub for the normal *component* (a construction piece, not a free vector)
     const [p0x, p0y] = toCanvas(cx, cy, scale, xp, yp);
     const [p1x, p1y] = toCanvas(cx, cy, scale, x0, y0);
-    ctx.strokeStyle = NORMAL_COLOR;
-    ctx.fillStyle = NORMAL_COLOR;
+    ctx.strokeStyle = XN_COLOR;
+    ctx.fillStyle = XN_COLOR;
     ctx.lineWidth = 2.5;
+    ctx.setLineDash([5, 4]);
     ctx.beginPath();
     ctx.moveTo(p0x, p0y);
     ctx.lineTo(p1x, p1y);
     ctx.stroke();
+    ctx.setLineDash([]);
     ctx.beginPath();
     ctx.arc(p1x, p1y, 3, 0, Math.PI * 2);
     ctx.fill();
     ctx.font = "600 12px DM Sans, system-ui, sans-serif";
     ctx.fillText("xₙ", p1x + 6, p1y - 6);
     drawArrow(ctx, cx, cy, scale, x0, y0, ACCENT, "x");
-    drawArrow(ctx, cx, cy, scale, nx * 0.55, ny * 0.55, NORMAL_COLOR, "n");
   });
 
   paintCanvas(el.build3, extent, (ctx, cx, cy, scale) => {

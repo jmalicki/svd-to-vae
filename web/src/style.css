@@ -1065,3 +1065,87 @@ button.film-cell.select-cell:hover {
   margin-top: 1.5rem;
 }
 
+/* Householder aim challenge */
+.hunt-panel {
+  margin: 1rem 0;
+}
+
+.hunt-panel.hunt-won {
+  border-color: #009e73;
+  box-shadow: 0 0 0 1px #009e73;
+}
+
+.hunt-meter {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.35rem 0 0.75rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.hunt-meter-label {
+  font-family: var(--sans);
+}
+
+.hunt-meter-track {
+  height: 8px;
+  background: var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.hunt-meter-fill {
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  transform: scaleX(1);
+  background: var(--accent);
+  border-radius: 4px;
+  transition: transform 0.08s linear, background 0.15s ease;
+}
+
+.hunt-meter-fill.near {
+  background: #e69f00;
+}
+
+.hunt-meter-fill.won {
+  background: #009e73;
+  transform: scaleX(0) !important;
+}
+
+.hunt-meter-val {
+  font-family: var(--mono);
+  font-weight: 500;
+  color: var(--ink);
+  min-width: 3.5rem;
+  text-align: right;
+}
+
+.hunt-banner {
+  margin: 0.65rem 0 0.25rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 6px;
+  background: color-mix(in srgb, #009e73 14%, white);
+  color: #00664a;
+  font-weight: 600;
+  font-size: 0.92rem;
+  animation: hunt-pop 0.35s ease-out;
+}
+
+@keyframes hunt-pop {
+  from {
+    transform: scale(0.97);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+#aimSolutionPanel {
+  margin-bottom: 1.25rem;
+}
+

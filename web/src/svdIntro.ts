@@ -97,10 +97,9 @@ app.innerHTML = `
   <section class="demo-block" aria-label="Aim onto axis">
     <h2>Aim an arrow onto the axis</h2>
     <p class="demo-intro">
-      Choose a mirror so a chosen arrow $a$ reflects onto the $+x$-axis.
-      Geometrically the mirror is the <strong>perpendicular bisector</strong> between the tip of $a$
-      and its target $(\\|a\\|, 0)$. The second coordinate becomes zero because the arrow now
-      <em>lies on</em> the axis — nothing stretched.
+      Challenge: scrub a mirror until the reflected tip of $a$ sits on the $+x$-axis.
+      When you hit it, you have found the Householder — a mirror that introduces a zero
+      without stretching.
     </p>
     <div class="controls">
       <div class="control-row">
@@ -113,26 +112,49 @@ app.innerHTML = `
           <input id="aimLen" type="range" min="0.4" max="2.2" step="0.05" value="1.4" />
         </label>
       </div>
-    </div>
-    <div class="grid-2 ellipse-pair">
-      <div class="panel">
-        <h2>Constructed Householder</h2>
-        <canvas id="aimCanvas" width="300" height="300" aria-label="Aim onto axis with constructed mirror"></canvas>
-        <p class="hint" id="aimReadout"></p>
-      </div>
-      <div class="panel">
-        <h2>Hunt with a free mirror</h2>
-        <div class="controls" style="margin-bottom:0.5rem">
-          <div class="control-row">
-            <label class="slider">
-              <span class="slider-label">Your mirror <strong id="huntAngVal">20°</strong></span>
-              <input id="huntAng" type="range" min="-90" max="90" step="1" value="20" />
-            </label>
-            <p class="help">Scrub until the reflected tip hits the $x$-axis. That angle is the Householder.</p>
-          </div>
+      <div class="control-actions">
+        <div class="btns">
+          <button id="aimChallenge" type="button">New challenge</button>
         </div>
-        <canvas id="huntCanvas" width="300" height="300" aria-label="Free mirror hunt for zero"></canvas>
-        <p class="hint" id="huntHint"></p>
+        <p class="help">Random arrow; resets your mirror away from the answer.</p>
+      </div>
+    </div>
+
+    <div class="panel hunt-panel" id="huntPanel">
+      <h2>Your move</h2>
+      <div class="controls" style="margin-bottom:0.5rem">
+        <div class="control-row">
+          <label class="slider">
+            <span class="slider-label">Mirror angle <strong id="huntAngVal">20°</strong></span>
+            <input id="huntAng" type="range" min="-90" max="90" step="1" value="20" />
+          </label>
+          <p class="help">Watch the height of the reflected tip. Goal: height → 0.</p>
+        </div>
+      </div>
+      <div class="hunt-meter" aria-hidden="true">
+        <span class="hunt-meter-label">Height off axis</span>
+        <div class="hunt-meter-track">
+          <div class="hunt-meter-fill" id="huntMeterFill"></div>
+        </div>
+        <strong class="hunt-meter-val" id="huntMeterVal">—</strong>
+      </div>
+      <canvas id="huntCanvas" width="360" height="360" aria-label="Free mirror hunt for zero"></canvas>
+      <p class="hunt-banner" id="huntBanner" hidden>On the axis — that mirror is the Householder.</p>
+      <p class="hint" id="huntHint"></p>
+    </div>
+
+    <div class="panel" id="aimSolutionPanel">
+      <h2>Why that mirror works</h2>
+      <p class="help" id="aimSolutionTease">
+        Hit the axis in the challenge above to unlock the geometric construction.
+      </p>
+      <div id="aimSolutionBody" hidden>
+        <p class="demo-intro" style="margin-top:0">
+          The winning mirror is the <strong>perpendicular bisector</strong> between the tip of $a$
+          and the target $(\\|a\\|, 0)$. Reflect across it and $a$ lands on the axis.
+        </p>
+        <canvas id="aimCanvas" width="360" height="360" aria-label="Constructed Householder mirror"></canvas>
+        <p class="hint" id="aimReadout"></p>
       </div>
     </div>
   </section>
@@ -349,12 +371,19 @@ const el = {
   aimAngVal: app.querySelector<HTMLElement>("#aimAngVal")!,
   aimLen: app.querySelector<HTMLInputElement>("#aimLen")!,
   aimLenVal: app.querySelector<HTMLElement>("#aimLenVal")!,
+  aimChallenge: app.querySelector<HTMLButtonElement>("#aimChallenge")!,
   aimCanvas: app.querySelector<HTMLCanvasElement>("#aimCanvas")!,
   aimReadout: app.querySelector<HTMLElement>("#aimReadout")!,
+  aimSolutionTease: app.querySelector<HTMLElement>("#aimSolutionTease")!,
+  aimSolutionBody: app.querySelector<HTMLElement>("#aimSolutionBody")!,
+  huntPanel: app.querySelector<HTMLElement>("#huntPanel")!,
   huntAng: app.querySelector<HTMLInputElement>("#huntAng")!,
   huntAngVal: app.querySelector<HTMLElement>("#huntAngVal")!,
   huntCanvas: app.querySelector<HTMLCanvasElement>("#huntCanvas")!,
   huntHint: app.querySelector<HTMLElement>("#huntHint")!,
+  huntBanner: app.querySelector<HTMLElement>("#huntBanner")!,
+  huntMeterFill: app.querySelector<HTMLElement>("#huntMeterFill")!,
+  huntMeterVal: app.querySelector<HTMLElement>("#huntMeterVal")!,
 
   hhRegen: app.querySelector<HTMLButtonElement>("#hhRegen")!,
   hhA: app.querySelector<HTMLCanvasElement>("#hhA")!,
@@ -641,12 +670,34 @@ function paintMirror(): void {
   });
 }
 
-/* ── Aim onto axis ─────────────────────────────────────────────────────── */
+/* ── Aim onto axis (challenge) ─────────────────────────────────────────── */
+
+let huntWon = false;
 
 function aimVector(): [number, number] {
   const th = (Number(el.aimAng.value) * Math.PI) / 180;
   const len = Number(el.aimLen.value);
   return [len * Math.cos(th), len * Math.sin(th)];
+}
+
+/** Offset hunt mirror from the true Householder so the challenge is not already solved. */
+function resetHuntAwayFromAnswer(answerDeg: number): void {
+  let offset = 35 + Math.floor(Math.random() * 40);
+  if (Math.random() < 0.5) offset = -offset;
+  let h = answerDeg + offset;
+  while (h > 90) h -= 180;
+  while (h < -90) h += 180;
+  el.huntAng.value = String(Math.round(h));
+  huntWon = false;
+}
+
+function newAimChallenge(): void {
+  el.aimAng.value = String(Math.round(-150 + Math.random() * 300));
+  el.aimLen.value = (0.6 + Math.random() * 1.4).toFixed(2);
+  const [ax, ay] = aimVector();
+  const aimed = householderAimToE1(ax, ay);
+  resetHuntAwayFromAnswer(aimed.mirrorAngleDeg);
+  paintAim();
 }
 
 function paintAim(): void {
@@ -659,9 +710,63 @@ function paintAim(): void {
   const aimed = householderAimToE1(ax, ay);
   const worldR = Math.max(2.0, aimed.normA * 1.25);
 
+  const hunt = Number(el.huntAng.value);
+  el.huntAngVal.textContent = `${hunt}°`;
+  const [hnx, hny] = normalFromLineAngle(hunt);
+  const [rx, ry] = reflectAcrossNormal(ax, ay, hnx, hny);
+  const height = Math.abs(ry);
+  const thresh = 0.045 * Math.max(aimed.normA, 1);
+  const onAxis = height < thresh;
+  if (onAxis && !huntWon) huntWon = true;
+
+  // Proximity meter: full when far, empty when on axis
+  const meter = Math.min(1, height / Math.max(aimed.normA, 0.5));
+  el.huntMeterFill.style.transform = `scaleX(${meter})`;
+  el.huntMeterFill.classList.toggle("near", meter < 0.25 && !onAxis);
+  el.huntMeterFill.classList.toggle("won", onAxis);
+  el.huntMeterVal.textContent = fmt(height, 3);
+  el.huntPanel.classList.toggle("hunt-won", onAxis);
+  el.huntBanner.hidden = !onAxis;
+
+  paintCanvas(el.huntCanvas, worldR, (ctx, cx, cy, scale) => {
+    if (onAxis) {
+      // Glow the x-axis
+      ctx.strokeStyle = "#009E73";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      const [x0, y0] = toCanvas(cx, cy, scale, -worldR, 0);
+      const [x1, y1] = toCanvas(cx, cy, scale, worldR, 0);
+      ctx.moveTo(x0, y0);
+      ctx.lineTo(x1, y1);
+      ctx.stroke();
+    }
+    drawMirrorLine(ctx, cx, cy, scale, hunt, worldR);
+    drawArrow(ctx, cx, cy, scale, ax, ay, ACCENT2, "a");
+    drawArrow(ctx, cx, cy, scale, rx, ry, onAxis ? "#009E73" : ACCENT, "reflected");
+  });
+
+  if (onAxis) {
+    el.huntHint.textContent =
+      `Reflected tip ≈ (${fmt(rx, 3)}, ${fmt(ry, 3)}). ` +
+      `Mirror ${Math.round(hunt)}° matches the Householder construction below.`;
+    el.aimSolutionTease.hidden = true;
+    el.aimSolutionBody.hidden = false;
+  } else {
+    const warmth =
+      meter < 0.15 ? "Very close — nudge carefully." :
+      meter < 0.35 ? "Getting warmer." :
+      "Keep scrubbing.";
+    el.huntHint.textContent = warmth;
+    // Keep solution visible once unlocked for this arrow; re-lock only on new challenge
+    if (!huntWon) {
+      el.aimSolutionTease.hidden = false;
+      el.aimSolutionBody.hidden = true;
+    }
+  }
+
+  // Solution panel (always paint so canvas is ready when unlocked)
   paintCanvas(el.aimCanvas, worldR, (ctx, cx, cy, scale) => {
     drawMirrorLine(ctx, cx, cy, scale, aimed.mirrorAngleDeg, worldR);
-    // Segment a → target (bisected by mirror)
     const [sx, sy] = toCanvas(cx, cy, scale, ax, ay);
     const [tx, ty] = toCanvas(cx, cy, scale, aimed.targetX, aimed.targetY);
     ctx.strokeStyle = MUTED;
@@ -679,27 +784,8 @@ function paintAim(): void {
   });
 
   el.aimReadout.textContent =
-    `‖a‖ = ${fmt(aimed.normA, 3)}. Mirror ≈ ${fmt(aimed.mirrorAngleDeg, 1)}°. ` +
-    `Ha ≈ (${fmt(aimed.targetX, 3)}, ${fmt(0, 3)}).`;
-
-  // Hunt
-  const hunt = Number(el.huntAng.value);
-  el.huntAngVal.textContent = `${hunt}°`;
-  const [hnx, hny] = normalFromLineAngle(hunt);
-  const [rx, ry] = reflectAcrossNormal(ax, ay, hnx, hny);
-  const onAxis = Math.abs(ry) < 0.04 * Math.max(aimed.normA, 1);
-
-  paintCanvas(el.huntCanvas, worldR, (ctx, cx, cy, scale) => {
-    drawMirrorLine(ctx, cx, cy, scale, hunt, worldR);
-    drawArrow(ctx, cx, cy, scale, ax, ay, ACCENT2, "a");
-    drawArrow(ctx, cx, cy, scale, rx, ry, ACCENT, "reflected");
-  });
-
-  const delta = Math.abs(hunt - aimed.mirrorAngleDeg);
-  const deltaAlt = Math.min(delta, Math.abs(delta - 180), Math.abs(delta + 180));
-  el.huntHint.textContent = onAxis
-    ? `Reflected y ≈ ${fmt(ry, 3)} — on the axis. Mirror matches the Householder.`
-    : `Reflected y ≈ ${fmt(ry, 3)}. Closest Householder mirror ≈ ${fmt(aimed.mirrorAngleDeg, 1)}° (Δ ${fmt(deltaAlt, 1)}°).`;
+    `‖a‖ = ${fmt(aimed.normA, 3)}. Householder mirror ≈ ${fmt(aimed.mirrorAngleDeg, 1)}°. ` +
+    `Ha ≈ (${fmt(aimed.targetX, 3)}, 0).`;
 }
 
 /* ── 5×5 Householder ───────────────────────────────────────────────────── */
@@ -948,8 +1034,15 @@ function paintAll(): void {
 
 el.mirAng.addEventListener("input", paintMirror);
 
-el.aimAng.addEventListener("input", paintAim);
-el.aimLen.addEventListener("input", paintAim);
+el.aimChallenge.addEventListener("click", newAimChallenge);
+el.aimAng.addEventListener("input", () => {
+  huntWon = false;
+  paintAim();
+});
+el.aimLen.addEventListener("input", () => {
+  huntWon = false;
+  paintAim();
+});
 el.huntAng.addEventListener("input", paintAim);
 
 el.hhRegen.addEventListener("click", regenHH);
@@ -969,6 +1062,10 @@ regenHH();
 resetSteps();
 syncSliderLabels();
 recompute(true);
+{
+  const [ax, ay] = aimVector();
+  resetHuntAwayFromAnswer(householderAimToE1(ax, ay).mirrorAngleDeg);
+}
 paintAll();
 
 void window.MathJax?.typesetPromise?.([app]).catch(() => {

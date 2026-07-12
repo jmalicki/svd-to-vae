@@ -4,6 +4,7 @@ import { classicalSvd } from "./classicalSvd";
 import { type Matrix, mat, get, set } from "./matrix";
 import {
   type Shape,
+  type RgbaBitmap,
   meanShape,
   procrustesAlign,
   flattenShape,
@@ -14,6 +15,7 @@ import {
   applyCanvasFit,
 } from "./faceWarp";
 import { parseAsf, toPixels } from "./immAsf";
+import { fetchImmPack } from "./immPack";
 
 export const FACE_SIZE = 64;
 
@@ -48,30 +50,76 @@ export type ImmManifest = {
   files: string[];
 };
 
-async function loadImage(url: string): Promise<HTMLImageElement> {
-  const img = new Image();
-  img.decoding = "async";
-  img.src = url;
-  await img.decode();
-  return img;
+export type LoadedImmFace = {
+  id: string;
+  img: RgbaBitmap;
+  shapePx: Shape;
+};
+
+/** Convert an RGBA bitmap to grayscale in-place (R=G=B=luma). */
+export function rgbaToGrayInPlace(img: RgbaBitmap): void {
+  const data = img.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const y = 0.299 * data[i]! + 0.587 * data[i + 1]! + 0.114 * data[i + 2]!;
+    data[i] = data[i + 1] = data[i + 2] = y;
+  }
 }
 
-function imageToGrayData(img: HTMLImageElement): ImageData {
-  const c = document.createElement("canvas");
-  c.width = img.naturalWidth;
-  c.height = img.naturalHeight;
+let grayScratch: HTMLCanvasElement | null = null;
+
+function bitmapToGrayData(bitmap: ImageBitmap): RgbaBitmap {
+  const c = grayScratch ?? (grayScratch = document.createElement("canvas"));
+  c.width = bitmap.width;
+  c.height = bitmap.height;
   const ctx = c.getContext("2d", { willReadFrequently: true })!;
-  ctx.drawImage(img, 0, 0);
+  ctx.drawImage(bitmap, 0, 0);
+  bitmap.close();
   const data = ctx.getImageData(0, 0, c.width, c.height);
-  for (let i = 0; i < data.data.length; i += 4) {
-    const y =
-      0.299 * data.data[i]! + 0.587 * data.data[i + 1]! + 0.114 * data.data[i + 2]!;
-    data.data[i] = data.data[i + 1] = data.data[i + 2] = y;
-  }
+  rgbaToGrayInPlace(data);
   return data;
 }
 
-function bboxThumb(src: ImageData, shape: Shape, size: number): Float64Array {
+/** Run `fn` over `items` with at most `concurrency` in flight; preserve order. */
+async function mapPool<T, R>(
+  items: readonly T[],
+  concurrency: number,
+  fn: (item: T, index: number) => Promise<R>,
+  onProgress?: (done: number, total: number) => void,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  let done = 0;
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (true) {
+      const i = next++;
+      if (i >= items.length) return;
+      results[i] = await fn(items[i]!, i);
+      done++;
+      onProgress?.(done, items.length);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+async function loadOneImm(
+  baseUrl: string,
+  id: string,
+): Promise<LoadedImmFace> {
+  const [imgRes, asfRes] = await Promise.all([
+    fetch(`${baseUrl}/${id}.jpg`),
+    fetch(`${baseUrl}/${id}.asf`),
+  ]);
+  if (!imgRes.ok) throw new Error(`JPG ${id}: ${imgRes.status}`);
+  if (!asfRes.ok) throw new Error(`ASF ${id}: ${asfRes.status}`);
+  const [blob, asfText] = await Promise.all([imgRes.blob(), asfRes.text()]);
+  const bitmap = await createImageBitmap(blob);
+  const img = bitmapToGrayData(bitmap);
+  const shapePx = toPixels(parseAsf(asfText), img.width, img.height);
+  return { id, img, shapePx };
+}
+
+export function bboxThumb(src: RgbaBitmap, shape: Shape, size: number): Float64Array {
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
@@ -100,30 +148,16 @@ function bboxThumb(src: ImageData, shape: Shape, size: number): Float64Array {
   return out;
 }
 
-export async function loadImmExamples(
-  baseUrl: string,
-  files: string[],
+/**
+ * Shared align + warp pipeline (browser or Node bake).
+ * Same code path either way — bake just supplies `loaded` from disk.
+ */
+export async function buildExamplesFromLoaded(
+  loaded: LoadedImmFace[],
   size = FACE_SIZE,
   onProgress?: (msg: string) => void,
-): Promise<{ examples: FaceExample[] }> {
-  const loaded: { id: string; img: ImageData; shapePx: Shape }[] = [];
-  const n = files.length;
-
-  for (let i = 0; i < files.length; i++) {
-    const id = files[i]!;
-    onProgress?.(`Loading ${i + 1}/${n}…`);
-    const [imgEl, asfText] = await Promise.all([
-      loadImage(`${baseUrl}/${id}.jpg`),
-      fetch(`${baseUrl}/${id}.asf`).then((r) => {
-        if (!r.ok) throw new Error(`ASF ${id}: ${r.status}`);
-        return r.text();
-      }),
-    ]);
-    const img = imageToGrayData(imgEl);
-    const shapePx = toPixels(parseAsf(asfText), img.width, img.height);
-    loaded.push({ id, img, shapePx });
-  }
-
+): Promise<FaceExample[]> {
+  const n = loaded.length;
   onProgress?.(`Aligning ${n} shapes…`);
   let mean = meanShape(loaded.map((e) => e.shapePx));
   for (let iter = 0; iter < 4; iter++) {
@@ -143,11 +177,41 @@ export async function loadImmExamples(
     const appearance = warpPiecewiseAffine(img, shapePx, meanOnCanvas, triangles, size);
     const thumb = bboxThumb(img, shapePx, size);
     examples.push({ id, thumb, appearance, shape });
-    // Yield so the status text can paint.
     if (i % 4 === 3) await new Promise((r) => setTimeout(r, 0));
   }
 
+  return examples;
+}
+
+/** Concurrent face fetches; browsers multiplex well under HTTP/2. */
+const LOAD_CONCURRENCY = 16;
+
+/** Live path: fetch raw IMM jpg+asf and warp in-process (also what the bake script mirrors). */
+export async function loadImmExamples(
+  baseUrl: string,
+  files: string[],
+  size = FACE_SIZE,
+  onProgress?: (msg: string) => void,
+): Promise<{ examples: FaceExample[] }> {
+  const n = files.length;
+  onProgress?.(`Loading 0/${n}…`);
+  const loaded = await mapPool(
+    files,
+    LOAD_CONCURRENCY,
+    (id) => loadOneImm(baseUrl, id),
+    (done, total) => onProgress?.(`Loading ${done}/${total}…`),
+  );
+  const examples = await buildExamplesFromLoaded(loaded, size, onProgress);
   return { examples };
+}
+
+/** Fast path: one pre-warped pack produced by `npm run gen:imm-pack`. */
+export async function loadImmExamplesPack(
+  url: string,
+  onProgress?: (msg: string) => void,
+): Promise<{ examples: FaceExample[] }> {
+  const { examples } = await fetchImmPack(url, onProgress);
+  return { examples: examples as FaceExample[] };
 }
 
 function appearanceMatrix(examples: FaceExample[]): Matrix {

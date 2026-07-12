@@ -988,6 +988,11 @@ canvas {
   line-height: 1.45;
 }
 
+.panel .hint.dataset-cite {
+  margin: 0.75rem 0 0;
+  font-size: 0.82rem;
+}
+
 .muted {
   color: var(--muted);
   font-size: 0.85rem;

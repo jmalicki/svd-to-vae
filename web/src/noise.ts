@@ -9,11 +9,10 @@ import {
   decodeAppearance,
   drawGray,
   getAppearanceCode,
-  loadImmExamples,
+  loadImmExamplesPack,
   sampleNoisyAppearance,
   samplePixelFoil,
   type FaceModel,
-  type ImmManifest,
 } from "./faceModel";
 
 declare global {
@@ -159,14 +158,9 @@ syncLabels();
 
 void (async () => {
   try {
-    const manifest = (await fetch(`${import.meta.env.BASE_URL}imm/manifest.json`).then((r) =>
-      r.json(),
-    )) as ImmManifest;
-    el.loadStatus.textContent = `Loading ${manifest.files.length} faces…`;
-    const { examples } = await loadImmExamples(
-      `${import.meta.env.BASE_URL}imm`,
-      manifest.files,
-      FACE_SIZE,
+    el.loadStatus.textContent = "Loading face pack…";
+    const { examples } = await loadImmExamplesPack(
+      `${import.meta.env.BASE_URL}imm/examples.bin`,
       (msg) => {
         el.loadStatus.textContent = msg;
       },

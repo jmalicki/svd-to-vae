@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "gen:ringing": "node scripts/gen-ringing-plot.mjs",
-    "predev": "npm run gen:ringing",
+    "gen:imm-pack": "vite-node scripts/bake-imm-pack.ts",
+    "predev": "npm run gen:ringing && npm run gen:imm-pack",
     "dev": "vite",
-    "prebuild": "npm run gen:ringing",
+    "prebuild": "npm run gen:ringing && npm run gen:imm-pack",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
@@ -20,6 +21,8 @@
     "ml-matrix": "^6.12.1"
   },
   "devDependencies": {
+    "@types/jpeg-js": "^0.3.0",
+    "jpeg-js": "^0.4.4",
     "typescript": "~5.8.3",
     "vite": "^6.3.5",
     "vitest": "^3.2.4"

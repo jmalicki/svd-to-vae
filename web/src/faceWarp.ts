@@ -5,6 +5,13 @@ import type { Point } from "./immAsf";
 
 export type Shape = Point[];
 
+/** RGBA bitmap (browser ImageData or a plain buffer from a pure-JS JPEG decode). */
+export type RgbaBitmap = {
+  width: number;
+  height: number;
+  data: Uint8ClampedArray;
+};
+
 export function meanShape(shapes: Shape[]): Shape {
   const n = shapes[0]?.length ?? 0;
   const out: Shape = Array.from({ length: n }, () => ({ x: 0, y: 0 }));
@@ -146,10 +153,10 @@ function sampleBilinear(
 
 /**
  * Inverse piecewise-affine warp: for each dest pixel, find its triangle in
- * `dstShape`, map to `srcShape`, and sample grayscale from `src` ImageData.
+ * `dstShape`, map to `srcShape`, and sample grayscale from `src` (R channel).
  */
 export function warpPiecewiseAffine(
-  src: ImageData,
+  src: RgbaBitmap,
   srcShape: Shape,
   dstShape: Shape,
   triangles: Uint32Array,

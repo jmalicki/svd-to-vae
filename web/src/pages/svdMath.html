@@ -31,30 +31,93 @@
 
   <section class="theory" aria-label="How the factorization is computed">
     <h2>How one computes it</h2>
+    <p>
+      The finished factors below come from a library. The idea behind them is the tool from the
+      <a href="./svd.html">previous page</a>:
+      a Householder reflection that aims a whole vector onto a coordinate axis, introducing many
+      zeros at once. Used from both sides, that is enough to reduce $A$ to a thin form whose
+      stretches are almost the singular values.
+    </p>
     <ol class="theory-steps">
       <li>
         <p>
-          <strong>Introduce zeros with Householder reflections</strong>
-          (the mirrors from the
-          <a href="./svd.html">previous page</a>),
-          acting from the left and from the right, until $A$ is
-          <a href="https://en.wikipedia.org/wiki/Bidiagonal_matrix" target="_blank" rel="noopener noreferrer">bidiagonal</a>:
-          nonzeros only on the main diagonal and one adjacent band. The $2\times 2$
-          “left then right” demo on that page is a toy of one left zero and one right zero.
+          <strong>Left multiply clears a column.</strong>
+          Take column 1 of $A$. Build a Householder $H$ so
+          $H\,\mathrm{col}_1 = \bigl(\|\mathrm{col}_1\|,\,0,\ldots,0\bigr)^{\top}$
+          — same construction as aiming an arrow onto the axis. Replace $A$ by $HA$.
+          Column 1 now has a single pivot with zeros underneath; the other columns move too
+          because every column is multiplied by the same $H$.
         </p>
       </li>
       <li>
         <p>
-          <strong>Iterate on that thin form</strong>
-          until the off-diagonal entries vanish. What remains on the diagonal are the singular
-          values. The accumulated left and right orthogonal maps become $U$ and $V$.
+          <strong>Right multiply clears a row.</strong>
+          The same idea works on the right. Choose a Householder $Q$ acting on the
+          <em>columns</em> (equivalently: aim a row of $A$ the way you aimed a column) and
+          replace $A$ by $AQ$. You can zero entries in a chosen row past a chosen position,
+          without changing lengths of outputs — only which inputs go where.
+          The $2\times 2$ “left then right” demo on the previous page is exactly one left clear
+          and one right clear.
         </p>
       </li>
       <li>
         <p>
-          Libraries follow this outline (Golub–Kahan-style reduction, then iteration). Below we
-          show the <em>finished</em> factors from a standard routine — not every intermediate
-          zero.
+          <strong>Alternate until $A$ is bidiagonal.</strong>
+          Clear under the first pivot (left), then clear the first row past the adjacent
+          entry (right), then under the second pivot, and so on. After a full pass you get a
+          <a href="https://en.wikipedia.org/wiki/Bidiagonal_matrix" target="_blank" rel="noopener noreferrer">bidiagonal</a>
+          matrix — nonzeros only on the main diagonal and one neighboring band:
+        </p>
+        <div class="math">
+          $$\begin{bmatrix}
+            * & * & * & * \\
+            * & * & * & * \\
+            * & * & * & * \\
+            * & * & * & *
+          \end{bmatrix}
+          \xrightarrow{\text{left}}
+          \begin{bmatrix}
+            * & * & * & * \\
+            0 & * & * & * \\
+            0 & * & * & * \\
+            0 & * & * & *
+          \end{bmatrix}
+          \xrightarrow{\text{right}}
+          \begin{bmatrix}
+            * & * & 0 & 0 \\
+            0 & * & * & * \\
+            0 & * & * & * \\
+            0 & * & * & *
+          \end{bmatrix}
+          \to \cdots \to
+          \begin{bmatrix}
+            * & * & 0 & 0 \\
+            0 & * & * & 0 \\
+            0 & 0 & * & * \\
+            0 & 0 & 0 & *
+          \end{bmatrix}$$
+        </div>
+        <p>
+          You stop at this thin band on purpose. Trying to wipe the last off-diagonal with the
+          same style of reflection in one shot tends to <em>fill in</em> zeros you already made.
+          Better to leave a simple band and finish it with a second phase.
+        </p>
+      </li>
+      <li>
+        <p>
+          <strong>Iterate on the band; record the maps.</strong>
+          An iterative phase drives the remaining off-diagonal entries to zero. What is left on
+          the diagonal (absolute values, sorted) are the singular values $\sigma_j$.
+          Every left Householder you applied is accumulated into the orthogonal factor $U$;
+          every right one into $V$. Undoing the bookkeeping gives
+          $A = U\,\mathrm{diag}(\sigma)\,V^{\top}$.
+        </p>
+      </li>
+      <li>
+        <p>
+          Libraries follow this outline (often called Golub–Kahan bidiagonalization, then
+          iteration on the band). The heatmaps below show the <em>finished</em> $U$, $\sigma$,
+          and $V$ — not every intermediate zero.
         </p>
       </li>
     </ol>
@@ -175,11 +238,11 @@
 
     <h3>Bidiagonalization</h3>
     <p>
-      The reduction to a
+      The left/right Householder pass that produces a
       <a href="https://en.wikipedia.org/wiki/Bidiagonal_matrix" target="_blank" rel="noopener noreferrer">bidiagonal</a>
-      matrix with Householder reflections from both sides is often called Golub–Kahan
-      bidiagonalization. After that, an iterative phase (typically with plane rotations on the
-      thin form) finishes the singular values. This page does not simulate those steps.
+      matrix is often called Golub–Kahan bidiagonalization. The follow-up iteration on that band
+      (typically with plane rotations) finishes the singular values. This page shows the
+      algebraic outline and the finished factors, not a step-by-step simulator of the iteration.
     </p>
   </section>
 
@@ -187,9 +250,10 @@
     <h2>In short</h2>
     <p>
       The singular value decomposition writes $A = U\,\mathrm{diag}(\sigma)\,V^{\top}$.
-      Libraries get there by clearing entries with Householder maps, then iterating on a
-      bidiagonal form. Truncating to the largest $k$ singular values gives the best rank-$k$
-      approximation in Frobenius norm, with error $\sum_{j>k}\sigma_j^{2}$.
+      One computes it by clearing columns and rows with Householder reflections until $A$ is
+      bidiagonal, then iterating on that band; $U$ and $V$ record the reflections. Truncating to
+      the largest $k$ singular values gives the best rank-$k$ approximation in Frobenius norm,
+      with error $\sum_{j>k}\sigma_j^{2}$.
     </p>
     <p class="next-chapter">
       <a href="./faces.html">Same idea, but the matrix is a stack of faces →</a>

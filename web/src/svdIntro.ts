@@ -194,16 +194,17 @@ app.innerHTML = `
   <section class="demo-block" aria-label="Check reflection">
     <h2>Check: choose $n$ so $Hx$ hits a target</h2>
     <p class="demo-intro">
-      Same $H = I - 2nn^{\\top}$. Fix $x$ (solid orange) and a target $y$ (dashed blue).
+      Same $H = I - 2nn^{\\top}$. Fix $x$ (solid blue) and a target $y$ (dashed blue).
       Find the mirror — equivalently find $n$ — such that $Hx = y$.
       When $\\|Hx - y\\| = 0$ you have the right reflection; $\\|Hx\\| = \\|x\\|$ the whole time.
     </p>
     <div class="controls">
-      <div class="control-row">
-        <label class="slider">
-          <span class="slider-label">Mirror angle (sets $n$) <strong id="mirAngVal">10°</strong></span>
-          <input id="mirAng" type="range" min="-90" max="90" step="1" value="10" />
-        </label>
+      <div class="control-row mir-dial-row">
+        <div class="build-dial">
+          <span class="slider-label">Mirror <strong id="mirAngVal">10°</strong></span>
+          <canvas id="mirMirrorDial" width="120" height="120" aria-label="Mirror angle dial"></canvas>
+          <p class="help">Drag around the circle — same 180° wrap as above.</p>
+        </div>
         <p class="help">Right panel shows $Hx$. Match it to the dashed target $y$.</p>
       </div>
     </div>
@@ -218,12 +219,12 @@ app.innerHTML = `
       <div class="panel">
         <h2>Before ($x$ and target $y$)</h2>
         <canvas id="mirIn" width="280" height="280" aria-label="Before reflection"></canvas>
-        <p class="hint">Orange = $x$. Dashed blue = $y$.</p>
+        <p class="hint">Orange band = mirror. Blue = $x$. Dashed blue = $y$.</p>
       </div>
       <div class="panel">
         <h2>After ($Hx$ vs $y$)</h2>
         <canvas id="mirOut" width="280" height="280" aria-label="After reflection"></canvas>
-        <p class="hint">Solid orange = $Hx$. Dashed blue = $y$.</p>
+        <p class="hint">Orange band = mirror. Solid blue = $Hx$. Dashed blue = $y$.</p>
       </div>
     </div>
     <p class="hunt-banner" id="mirBanner" hidden>$Hx = y$ — you found the $n$ for this reflection.</p>
@@ -512,8 +513,8 @@ app.innerHTML = `
 /* ── DOM refs ─────────────────────────────────────────────────────────── */
 
 const el = {
-  mirAng: app.querySelector<HTMLInputElement>("#mirAng")!,
   mirAngVal: app.querySelector<HTMLElement>("#mirAngVal")!,
+  mirMirrorDial: app.querySelector<HTMLCanvasElement>("#mirMirrorDial")!,
   mirIn: app.querySelector<HTMLCanvasElement>("#mirIn")!,
   mirOut: app.querySelector<HTMLCanvasElement>("#mirOut")!,
   mirMeterFill: app.querySelector<HTMLElement>("#mirMeterFill")!,
@@ -834,6 +835,7 @@ const DECOMP_COLOR = "#7B2D8E";
 
 let mirrorDial: ReturnType<typeof mountAngleDial>;
 let probeDial: ReturnType<typeof mountAngleDial>;
+let mirDial: ReturnType<typeof mountAngleDial>;
 
 function buildProbe(): [number, number] {
   const ang = (probeDial.get() * Math.PI) / 180;
@@ -964,8 +966,8 @@ function drawDashedArrow(
 }
 
 function paintMirror(): void {
-  const ang = Number(el.mirAng.value);
-  el.mirAngVal.textContent = `${ang}°`;
+  const ang = mirDial.get();
+  el.mirAngVal.textContent = `${Math.round(ang)}°`;
   const [nx, ny] = normalFromLineAngle(ang);
   const H = householderFromNormal(nx, ny);
   const [rx, ry] = applyMat2(H, MIR_SRC[0], MIR_SRC[1]);
@@ -986,21 +988,11 @@ function paintMirror(): void {
   paintCanvas(el.mirIn, 1.4, (ctx, cx, cy, scale) => {
     drawMirrorLine(ctx, cx, cy, scale, ang, 1.4);
     drawCurve(ctx, cx, cy, scale, (t) => [Math.cos(t), Math.sin(t)], INK);
-    drawArrow(ctx, cx, cy, scale, MIR_SRC[0], MIR_SRC[1], ACCENT2, "start");
-    drawDashedArrow(ctx, cx, cy, scale, MIR_TGT[0], MIR_TGT[1], ACCENT, "target");
+    drawArrow(ctx, cx, cy, scale, MIR_SRC[0], MIR_SRC[1], ACCENT, "x");
+    drawDashedArrow(ctx, cx, cy, scale, MIR_TGT[0], MIR_TGT[1], ACCENT, "y");
   });
 
   paintCanvas(el.mirOut, 1.4, (ctx, cx, cy, scale) => {
-    if (won) {
-      ctx.strokeStyle = "#009E73";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      const [ax0, ay0] = toCanvas(cx, cy, scale, 0, 0);
-      const [ax1, ay1] = toCanvas(cx, cy, scale, MIR_TGT[0], MIR_TGT[1]);
-      ctx.moveTo(ax0, ay0);
-      ctx.lineTo(ax1, ay1);
-      ctx.stroke();
-    }
     drawMirrorLine(ctx, cx, cy, scale, ang, 1.4);
     drawCurve(
       ctx,
@@ -1010,8 +1002,17 @@ function paintMirror(): void {
       (t) => reflectAcrossNormal(Math.cos(t), Math.sin(t), nx, ny),
       INK,
     );
-    drawDashedArrow(ctx, cx, cy, scale, MIR_TGT[0], MIR_TGT[1], ACCENT, "target");
-    drawArrow(ctx, cx, cy, scale, rx, ry, won ? "#009E73" : ACCENT2, "reflected");
+    drawDashedArrow(ctx, cx, cy, scale, MIR_TGT[0], MIR_TGT[1], ACCENT, "y");
+    // Blue Hx (not orange — that color is reserved for the mirror band)
+    drawArrow(ctx, cx, cy, scale, rx, ry, won ? "#009E73" : ACCENT, "Hx");
+    if (won) {
+      // Soft green halo under the matched tip
+      const [tx, ty] = toCanvas(cx, cy, scale, MIR_TGT[0], MIR_TGT[1]);
+      ctx.fillStyle = "rgba(0, 158, 115, 0.18)";
+      ctx.beginPath();
+      ctx.arc(tx, ty, 10, 0, Math.PI * 2);
+      ctx.fill();
+    }
   });
 }
 
@@ -1381,6 +1382,13 @@ probeDial = mountAngleDial(el.buildProbeDial, {
   color: ACCENT,
   onChange: () => paintBuild(),
 });
+mirDial = mountAngleDial(el.mirMirrorDial, {
+  kind: "line",
+  periodDeg: 180,
+  valueDeg: 10,
+  color: MIRROR,
+  onChange: () => paintMirror(),
+});
 
 function paintAll(): void {
   paintBuild();
@@ -1393,7 +1401,6 @@ function paintAll(): void {
 }
 
 el.buildProbeLen.addEventListener("input", paintBuild);
-el.mirAng.addEventListener("input", paintMirror);
 
 el.aimChallenge.addEventListener("click", newAimChallenge);
 el.aimAng.addEventListener("input", () => {

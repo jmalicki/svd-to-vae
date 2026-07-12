@@ -147,9 +147,12 @@ header a {
   cursor: grabbing;
 }
 
-.build-dial .help {
-  margin: 0;
-  max-width: 12rem;
+.mir-dial-row {
+  align-items: end;
+}
+
+.mir-dial-row .build-dial {
+  justify-items: start;
 }
 
 .build-rail .slider-label {

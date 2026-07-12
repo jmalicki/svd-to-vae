@@ -64,31 +64,48 @@ app.innerHTML = `
   <section class="demo-block" aria-label="Free mirror">
     <h2>Reflect across a line</h2>
     <p class="demo-intro">
-      Scrub the <span class="mirror-label">orange mirror</span>.
-      The unit circle and sample arrows bounce to the other side of that line.
-      Thin gray lines are just the $x$ and $y$ axes — they do not move.
+      Chapter 1’s rotations move directions around while keeping every length the same.
+      There is a second length-preserving move that is just as basic: bounce across a line —
+      a <strong>reflection</strong>. Same lengths, but the picture flips to the other side of the mirror.
+      That flip is useful when you want to aim an arrow somewhere specific without stretching it.
+      Try it once so the move is in your hands; the next section will ask you to aim on purpose.
+    </p>
+    <p class="demo-intro">
+      <strong>Your job:</strong> use the slider below to rotate the
+      <span class="mirror-label">orange line</span> in the pictures until the solid orange arrow
+      on the <em>right</em> matches the dashed blue target.
+      Left picture = before the bounce. Right picture = after. Gray lines are only the $x$/$y$ axes.
     </p>
     <div class="controls">
       <div class="control-row">
         <label class="slider">
-          <span class="slider-label">Mirror angle <strong id="mirAngVal">35°</strong></span>
-          <input id="mirAng" type="range" min="-90" max="90" step="1" value="35" />
+          <span class="slider-label">Rotate the orange line <strong id="mirAngVal">10°</strong></span>
+          <input id="mirAng" type="range" min="-90" max="90" step="1" value="10" />
         </label>
-        <p class="help">Turns the orange mirror line about the origin.</p>
+        <p class="help">This slider turns the mirror. Score on the right panel: orange solid vs blue dashed.</p>
       </div>
     </div>
-    <div class="grid-2 ellipse-pair">
+    <div class="hunt-meter" aria-hidden="true">
+      <span class="hunt-meter-label">Distance to target</span>
+      <div class="hunt-meter-track">
+        <div class="hunt-meter-fill" id="mirMeterFill"></div>
+      </div>
+      <strong class="hunt-meter-val" id="mirMeterVal">—</strong>
+    </div>
+    <div class="grid-2 ellipse-pair" id="mirPanel">
       <div class="panel">
-        <h2>Before</h2>
+        <h2>Before (do not chase this side)</h2>
         <canvas id="mirIn" width="280" height="280" aria-label="Unit circle before reflection"></canvas>
-        <p class="hint">Orange band = mirror. Gray = coordinate axes.</p>
+        <p class="hint">Starting orange arrow and blue target. Mirror shown for reference.</p>
       </div>
       <div class="panel">
-        <h2>After reflection</h2>
+        <h2>After reflection — match the target here</h2>
         <canvas id="mirOut" width="280" height="280" aria-label="Unit circle after reflection"></canvas>
-        <p class="hint">Arrows flip across the orange mirror; lengths unchanged.</p>
+        <p class="hint">Solid orange = reflected arrow. Dashed blue = where it should land.</p>
       </div>
     </div>
+    <p class="hunt-banner" id="mirBanner" hidden>Matched — reflection flipped the arrow onto the target without stretching.</p>
+    <p class="hint" id="mirHint"></p>
     <p class="formula">
       Once you see the picture: $H = I - 2nn^{\\top}$ with unit normal $n$ to the mirror.
       $H$ is orthogonal ($H^{\\top}H=I$) and $\\det H = -1$.
@@ -98,7 +115,7 @@ app.innerHTML = `
   <section class="demo-block" aria-label="Aim onto axis">
     <h2>Aim an arrow onto the axis</h2>
     <p class="demo-intro">
-      Drag the mirror until the reflected orange arrow lies flat on the horizontal axis.
+      Drag the slider until the reflected orange arrow lies flat on the horizontal axis.
       That special mirror is a Householder: same lengths, but the arrow’s height becomes zero.
     </p>
     <div class="controls">
@@ -125,10 +142,10 @@ app.innerHTML = `
       <div class="controls" style="margin-bottom:0.5rem">
         <div class="control-row">
           <label class="slider">
-            <span class="slider-label">Mirror angle <strong id="huntAngVal">20°</strong></span>
+            <span class="slider-label">Rotate the orange line <strong id="huntAngVal">20°</strong></span>
             <input id="huntAng" type="range" min="-90" max="90" step="1" value="20" />
           </label>
-          <p class="help">Match the height meter to zero — reflected arrow flat on the axis.</p>
+          <p class="help">Use this slider until the height meter hits zero.</p>
         </div>
       </div>
       <div class="hunt-meter" aria-hidden="true">
@@ -366,6 +383,11 @@ const el = {
   mirAngVal: app.querySelector<HTMLElement>("#mirAngVal")!,
   mirIn: app.querySelector<HTMLCanvasElement>("#mirIn")!,
   mirOut: app.querySelector<HTMLCanvasElement>("#mirOut")!,
+  mirMeterFill: app.querySelector<HTMLElement>("#mirMeterFill")!,
+  mirMeterVal: app.querySelector<HTMLElement>("#mirMeterVal")!,
+  mirBanner: app.querySelector<HTMLElement>("#mirBanner")!,
+  mirHint: app.querySelector<HTMLElement>("#mirHint")!,
+  mirPanel: app.querySelector<HTMLElement>("#mirPanel")!,
 
   aimAng: app.querySelector<HTMLInputElement>("#aimAng")!,
   aimAngVal: app.querySelector<HTMLElement>("#aimAngVal")!,
@@ -662,29 +684,91 @@ function clamp(x: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, x));
 }
 
-/* ── Free mirror ───────────────────────────────────────────────────────── */
+/* ── Reflect across a line (match target) ──────────────────────────────── */
 
-const SAMPLE_ARROWS: [number, number, string, string][] = [
-  [1, 0, ACCENT2, "(1,0)"],
-  [0, 1, ACCENT, "(0,1)"],
-  [0.7, 0.7, INK, ""],
-];
+/** Orange arrow to flip; dashed blue = where it should land. */
+const MIR_SRC: [number, number] = [1, 0];
+const MIR_TGT: [number, number] = [0, 1];
+
+function drawDashedArrow(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  scale: number,
+  x: number,
+  y: number,
+  color: string,
+  label: string,
+): void {
+  const [x0, y0] = toCanvas(cx, cy, scale, 0, 0);
+  const [x1, y1] = toCanvas(cx, cy, scale, x, y);
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const len = Math.hypot(dx, dy);
+  if (len < 2) return;
+  const ux = dx / len;
+  const uy = dy / len;
+  const head = 9;
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 2.25;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(x1, y1);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x1 - head * ux + 0.5 * head * uy, y1 - head * uy - 0.5 * head * ux);
+  ctx.lineTo(x1 - head * ux - 0.5 * head * uy, y1 - head * uy + 0.5 * head * ux);
+  ctx.closePath();
+  ctx.fill();
+  if (label) {
+    ctx.font = "600 12px DM Sans, system-ui, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText(label, x1 + 7 * ux, y1 + 7 * uy);
+  }
+}
 
 function paintMirror(): void {
   const ang = Number(el.mirAng.value);
   el.mirAngVal.textContent = `${ang}°`;
   const [nx, ny] = normalFromLineAngle(ang);
   const H = householderFromNormal(nx, ny);
+  const [rx, ry] = applyMat2(H, MIR_SRC[0], MIR_SRC[1]);
+  const dist = Math.hypot(rx - MIR_TGT[0], ry - MIR_TGT[1]);
+  const won = dist < 0.08;
+
+  const meter = Math.min(1, dist / 1.5);
+  el.mirMeterFill.style.transform = `scaleX(${meter})`;
+  el.mirMeterFill.classList.toggle("near", meter < 0.25 && !won);
+  el.mirMeterFill.classList.toggle("won", won);
+  el.mirMeterVal.textContent = fmt(dist, 3);
+  el.mirBanner.hidden = !won;
+  el.mirPanel.classList.toggle("hunt-won", won);
+  el.mirHint.textContent = won
+    ? "The orange arrow bounced onto the blue target. Lengths stayed the same."
+    : "Keep moving the slider. Score is on the right: orange solid vs blue dashed.";
 
   paintCanvas(el.mirIn, 1.4, (ctx, cx, cy, scale) => {
     drawMirrorLine(ctx, cx, cy, scale, ang, 1.4);
     drawCurve(ctx, cx, cy, scale, (t) => [Math.cos(t), Math.sin(t)], INK);
-    for (const [x, y, c, lab] of SAMPLE_ARROWS) {
-      drawArrow(ctx, cx, cy, scale, x, y, c, lab);
-    }
+    drawArrow(ctx, cx, cy, scale, MIR_SRC[0], MIR_SRC[1], ACCENT2, "start");
+    drawDashedArrow(ctx, cx, cy, scale, MIR_TGT[0], MIR_TGT[1], ACCENT, "target");
   });
 
   paintCanvas(el.mirOut, 1.4, (ctx, cx, cy, scale) => {
+    if (won) {
+      ctx.strokeStyle = "#009E73";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      const [ax0, ay0] = toCanvas(cx, cy, scale, 0, 0);
+      const [ax1, ay1] = toCanvas(cx, cy, scale, MIR_TGT[0], MIR_TGT[1]);
+      ctx.moveTo(ax0, ay0);
+      ctx.lineTo(ax1, ay1);
+      ctx.stroke();
+    }
     drawMirrorLine(ctx, cx, cy, scale, ang, 1.4);
     drawCurve(
       ctx,
@@ -694,10 +778,8 @@ function paintMirror(): void {
       (t) => reflectAcrossNormal(Math.cos(t), Math.sin(t), nx, ny),
       INK,
     );
-    for (const [x, y, c, lab] of SAMPLE_ARROWS) {
-      const [rx, ry] = applyMat2(H, x, y);
-      drawArrow(ctx, cx, cy, scale, rx, ry, c, lab ? `H${lab}` : "");
-    }
+    drawDashedArrow(ctx, cx, cy, scale, MIR_TGT[0], MIR_TGT[1], ACCENT, "target");
+    drawArrow(ctx, cx, cy, scale, rx, ry, won ? "#009E73" : ACCENT2, "reflected");
   });
 }
 
@@ -786,7 +868,7 @@ function paintAim(): void {
     const warmth =
       meter < 0.15 ? "Very close — nudge carefully." :
       meter < 0.35 ? "Getting warmer." :
-      "Keep scrubbing.";
+      "Keep moving the slider.";
     el.huntHint.textContent = warmth;
     // Keep solution visible once unlocked for this arrow; re-lock only on new challenge
     if (!huntWon) {

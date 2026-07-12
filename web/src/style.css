@@ -520,9 +520,55 @@ button:hover {
 }
 
 .example-takeaway a,
-.appendix a {
+.appendix a,
+.conclusion a {
   color: var(--accent);
   text-underline-offset: 2px;
+}
+
+.conclusion {
+  margin-top: 1.75rem;
+  padding: 1.1rem 1.15rem 1.2rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.conclusion > h2 {
+  margin: 0 0 0.55rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.conclusion > p {
+  margin: 0 0 0.75rem;
+  max-width: 44rem;
+  color: var(--ink);
+  line-height: 1.55;
+  font-size: 0.98rem;
+}
+
+.conclusion .example-bullets {
+  margin-bottom: 1rem;
+}
+
+.conclusion .next-chapter {
+  margin: 0;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.conclusion .next-chapter strong {
+  color: var(--ink);
+}
+
+.conclusion .next-chapter a {
+  display: inline-block;
+  margin-top: 0.45rem;
+  font-weight: 600;
+  font-size: 1rem;
 }
 
 .demo-block .controls {

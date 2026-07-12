@@ -187,22 +187,22 @@ app.innerHTML = `
       <div class="panel movie-panel">
         <h2>1 · Start</h2>
         <canvas id="mv0" width="200" height="200" aria-label="Unit circle"></canvas>
-        <p class="hint">Unit circle.</p>
+        <p class="hint">Unit circle with special directions $v_1$, $v_2$.</p>
       </div>
       <div class="panel movie-panel">
         <h2>2 · Re-aim ($V^{\\top}$)</h2>
         <canvas id="mv1" width="200" height="200" aria-label="After V transpose"></canvas>
-        <p class="hint">Rotate so special directions sit on the axes.</p>
+        <p class="hint">Those arrows rotate onto the coordinate axes.</p>
       </div>
       <div class="panel movie-panel">
         <h2>3 · Stretch ($\\Sigma$)</h2>
         <canvas id="mv2" width="200" height="200" aria-label="After Sigma"></canvas>
-        <p class="hint">Stretch axes by $\\sigma_1$, $\\sigma_2$.</p>
+        <p class="hint">Axis arrows lengthen to $\\sigma_1$, $\\sigma_2$.</p>
       </div>
       <div class="panel movie-panel">
         <h2>4 · Re-aim ($U$)</h2>
         <canvas id="mv3" width="200" height="200" aria-label="After U"></canvas>
-        <p class="hint">Rotate to the final ellipse — same as $Ax$.</p>
+        <p class="hint">Rotate the stretched arrows to the final ellipse.</p>
       </div>
     </div>
     <div class="math">
@@ -278,16 +278,26 @@ app.innerHTML = `
     </div>
   </section>
 
-  <section class="appendix" id="appendix" aria-label="Takeaways">
-    <h2>Takeaways</h2>
-    <ul class="example-bullets">
-      <li>Rotation turns directions without changing lengths; stretch changes lengths along axes.</li>
-      <li>Every $2\\times 2$ linear transformation is rotate → stretch → rotate (the SVD).</li>
-      <li>The stretch amounts are the singular values $\\sigma_1 \\ge \\sigma_2$.</li>
-    </ul>
+  <section class="conclusion" id="conclusion" aria-label="Conclusion">
+    <h2>What you learned</h2>
     <p>
-      <a href="./truncate.html">Next →</a>
-      keep only the biggest stretches and throw the small ones away.
+      A $2\\times 2$ matrix is a linear transformation: it sends each vector $x$ to $Ax$.
+      Two simple cases make the geometry obvious — <strong>rotation</strong> (directions move, lengths stay)
+      and <strong>stretch</strong> (axis lengths change, the unit circle becomes an ellipse).
+      A general matrix is always those pieces composed: rotate, stretch by
+      $\\sigma_1$ and $\\sigma_2$, rotate again. That factorization is the SVD; the stretch amounts
+      are the singular values.
+    </p>
+    <ul class="example-bullets">
+      <li>Rotation and stretch are the building blocks; the unit-circle picture shows what each does.</li>
+      <li>$A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$ — same idea for every nonsingular $2\\times 2$ matrix.</li>
+      <li>$\\sigma_1 \\ge \\sigma_2 \\ge 0$ are how hard $A$ stretches in its strongest and weakest directions.</li>
+    </ul>
+    <p class="next-chapter">
+      <strong>Next:</strong>
+      once you have many singular values, you can keep only the largest ones and throw the rest away —
+      that is truncated SVD, and it is the start of compression.
+      <a href="./truncate.html">A matrix from its top k pieces →</a>
     </p>
   </section>
 `;
@@ -594,17 +604,41 @@ function paintPieces(): void {
 
 function paintMovie(f: EllipseFrame): void {
   const r = f.outScale;
+  const [s1, s2] = f.sigma;
+  const v1x = get(f.V, 0, 0);
+  const v1y = get(f.V, 1, 0);
+  const v2x = get(f.V, 0, 1);
+  const v2y = get(f.V, 1, 1);
+
   paintCanvas(el.mv0, 1.35, (ctx, cx, cy, scale) => {
     drawCurve(ctx, cx, cy, scale, (t) => [Math.cos(t), Math.sin(t)], INK);
+    drawArrow(ctx, cx, cy, scale, v1x, v1y, ACCENT2, "v₁");
+    drawArrow(ctx, cx, cy, scale, v2x, v2y, ACCENT, "v₂");
   });
+
+  // Vᵀ sends vⱼ onto the coordinate axes — that is the visible rotation.
+  const [w1x, w1y] = applyMat2(f.Vt, v1x, v1y);
+  const [w2x, w2y] = applyMat2(f.Vt, v2x, v2y);
   paintCanvas(el.mv1, 1.35, (ctx, cx, cy, scale) => {
     drawCurve(ctx, cx, cy, scale, (t) => applyMat2(f.Vt, Math.cos(t), Math.sin(t)), INK);
+    drawArrow(ctx, cx, cy, scale, w1x, w1y, ACCENT2, "Vᵀv₁");
+    drawArrow(ctx, cx, cy, scale, w2x, w2y, ACCENT, "Vᵀv₂");
   });
+
+  const [p1x, p1y] = applyMat2(f.S, w1x, w1y); // ≈ (σ₁, 0)
+  const [p2x, p2y] = applyMat2(f.S, w2x, w2y); // ≈ (0, σ₂)
   paintCanvas(el.mv2, r, (ctx, cx, cy, scale) => {
     drawCurve(ctx, cx, cy, scale, (t) => applyMat2(f.SV, Math.cos(t), Math.sin(t)), INK);
+    if (s1 > 1e-6) drawArrow(ctx, cx, cy, scale, p1x, p1y, ACCENT2, "σ₁");
+    if (s2 > 1e-6) drawArrow(ctx, cx, cy, scale, p2x, p2y, ACCENT, "σ₂");
   });
+
+  const [q1x, q1y] = applyMat2(f.U, p1x, p1y); // σ₁ u₁
+  const [q2x, q2y] = applyMat2(f.U, p2x, p2y); // σ₂ u₂
   paintCanvas(el.mv3, r, (ctx, cx, cy, scale) => {
     drawCurve(ctx, cx, cy, scale, (t) => applyMat2(f.A, Math.cos(t), Math.sin(t)), INK);
+    if (s1 > 1e-6) drawArrow(ctx, cx, cy, scale, q1x, q1y, ACCENT2, "σ₁u₁");
+    if (s2 > 1e-6) drawArrow(ctx, cx, cy, scale, q2x, q2y, ACCENT, "σ₂u₂");
   });
 }
 

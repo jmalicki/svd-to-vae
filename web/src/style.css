@@ -147,12 +147,12 @@ header a {
   cursor: grabbing;
 }
 
-.mir-dial-row {
-  align-items: end;
+.aim-section .build-rail .hunt-meter {
+  margin: 0.15rem 0 0;
 }
 
-.mir-dial-row .build-dial {
-  justify-items: start;
+.aim-section .build-main .panel canvas {
+  width: min(100%, 360px);
 }
 
 .build-rail .slider-label {

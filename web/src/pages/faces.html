@@ -48,8 +48,10 @@
       </li>
     </ol>
     <p class="theory-note">
-      Drag $k$ below: you are literally changing the truncation rank. Names like Procrustes and
-      Delaunay are in the <a href="#appendix">appendix</a>.
+      Drag $k$ below: you are changing the truncation rank. The slider goes up to full rank
+      ($N-1$ for $N$ faces) so the middle can match the left; small $k$ is the interesting
+      compression. Names like Procrustes and Delaunay are in the
+      <a href="#appendix">appendix</a>.
     </p>
   </section>
 
@@ -99,7 +101,7 @@
     <div class="controls face-controls">
       <label>
         How many numbers ($k$)
-        <input id="rank" type="range" min="0" max="30" step="1" value="8" disabled />
+        <input id="rank" type="range" min="0" max="239" step="1" value="8" disabled />
         <span id="rankVal" class="val">8</span>
       </label>
     </div>

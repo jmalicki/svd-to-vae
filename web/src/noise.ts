@@ -48,7 +48,6 @@ const el = {
 
 const VARIANT_N = 5;
 const GALLERY_N = 12;
-const MAX_K = 30;
 
 let model: FaceModel | null = null;
 let foil: ReturnType<typeof buildPixelFoilModel> | null = null;
@@ -165,7 +164,7 @@ void (async () => {
         el.loadStatus.textContent = msg;
       },
     );
-    const fullK = Math.min(MAX_K, examples.length - 1);
+    const fullK = Math.min(examples.length - 1, FACE_SIZE * FACE_SIZE);
     model = buildFaceModel(examples, fullK);
     foil = buildPixelFoilModel(examples, fullK);
     el.rank.max = String(fullK);

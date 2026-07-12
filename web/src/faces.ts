@@ -44,7 +44,8 @@ const el = {
 
 let model: FaceModel | null = null;
 let selected = 0;
-const MAX_K = 30;
+/** Rank of the fitted model (= slider max); at most N−1 for N faces. */
+let modelRank = 0;
 
 function syncLabel(): void {
   el.rankVal.textContent = el.rank.value;
@@ -54,12 +55,16 @@ function explain(k: number, err: number): void {
   if (k === 0) {
     el.kExplain.textContent =
       "k = 0: you kept no numbers at all. Everyone rebuilds as the same average face — this person’s identity is gone.";
+  } else if (modelRank > 0 && k >= modelRank) {
+    el.kExplain.textContent = `k = ${k}: full rank for this stack (N−1 = ${modelRank}). Middle should match the left (error ${err.toFixed(4)}).`;
   } else if (k <= 3) {
     el.kExplain.textContent = `k = ${k}: only a few numbers fit through. You get a rough “someone,” not quite this person yet (error ${err.toFixed(4)} vs the left picture).`;
   } else if (k <= 12) {
     el.kExplain.textContent = `k = ${k}: more numbers get through, so lighting and features return. Closer to the left (error ${err.toFixed(4)}).`;
+  } else if (k <= 40) {
+    el.kExplain.textContent = `k = ${k}: most of this face fits, but this is still truncated — full rank is ${modelRank} (error ${err.toFixed(4)}).`;
   } else {
-    el.kExplain.textContent = `k = ${k}: most of this face fits. Extra numbers mostly add fine detail (error ${err.toFixed(4)}).`;
+    el.kExplain.textContent = `k = ${k}: fine detail returning; only ${modelRank - k} directions left unused (error ${err.toFixed(4)}).`;
   }
   el.reconCap.textContent = k === 0 ? "average only" : `${k} number${k === 1 ? "" : "s"}`;
 }
@@ -72,9 +77,9 @@ function drawCodeBars(code: Float64Array, k: number): void {
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, w, h);
-  const n = Math.min(code.length, MAX_K);
-  const gap = 2;
-  const barW = (w - gap * (n + 1)) / n;
+  const n = code.length;
+  const gap = n > 80 ? 0 : 2;
+  const barW = Math.max(1, (w - gap * (n + 1)) / n);
   let maxAbs = 1e-6;
   for (let i = 0; i < n; i++) maxAbs = Math.max(maxAbs, Math.abs(code[i]!));
   const mid = h / 2;
@@ -144,8 +149,9 @@ void (async () => {
         el.loadStatus.textContent = msg;
       },
     );
-    const fullK = Math.min(MAX_K, examples.length - 1);
+    const fullK = Math.min(examples.length - 1, FACE_SIZE * FACE_SIZE);
     model = buildFaceModel(examples, fullK);
+    modelRank = fullK;
     el.rank.max = String(fullK);
     el.rank.disabled = false;
     el.loadStatus.textContent = `${examples.length} faces · click one, then scrub k`;

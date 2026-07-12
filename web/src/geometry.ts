@@ -1,13 +1,14 @@
 import "./style.css";
 import { chapterNav } from "./chapterNav";
 import {
-  fromNested,
-  get,
-  matmul,
-  transpose,
-  type Matrix,
-} from "./matrix";
-import { drawHeatmap } from "./viz";
+  TILTED_EXAMPLE_A,
+  applyMat2,
+  frameFromFactors,
+  frameFromMatrix,
+  type AngleFactors,
+  type EllipseFrame,
+} from "./svdGeometry2d";
+import { fromNested, get, type Matrix } from "./matrix";
 
 declare global {
   interface Window {
@@ -17,6 +18,9 @@ declare global {
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 
+/** Fixed tilted example: σ ≠ diagonal entries. */
+const EXAMPLE_A = TILTED_EXAMPLE_A;
+
 app.innerHTML = `
   <header>
     ${chapterNav({ current: 1, next: { href: "./truncate.html", label: "Next →" } })}
@@ -25,180 +29,248 @@ app.innerHTML = `
       <a href="https://github.com/jmalicki/svd-to-vae" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
     </p>
     <p class="lede">
-      Take every vector of length 1 — their tips form a circle — and multiply each by a
-      $2\\times 2$ matrix $A$. The tips no longer form a circle. They form an
-      <strong>ellipse</strong>. The rest of this page is that one fact, slowly unpacked.
+      Pick a $2\\times 2$ matrix $A$. Send every vector of length $1$ through $Ax$.
+      The tips no longer form a circle — they form an <strong>ellipse</strong>.
+      This page unpacks that one fact.
     </p>
   </header>
 
   <section class="theory" aria-label="Setup">
-    <h2>Before you play</h2>
+    <h2>Setup</h2>
     <ol class="theory-steps">
       <li>
         <p>
-          <strong>A matrix moves every vector.</strong>
-          For a vector $x$, the product $Ax$ is another vector.
-          Left picture = before. Right picture = after.
+          <strong>Before / after.</strong>
+          Left: unit circle (every tip has length $1$). Right: the same tips after multiplying by $A$.
         </p>
       </li>
       <li>
         <p>
           <strong>Some directions stretch more than others.</strong>
-          The longest and shortest stretches on that ellipse are special numbers called
-          <em>singular values</em> (written $\\sigma_1$ and $\\sigma_2$, “sigma”).
-          Start with one fixed matrix below, then scrub your own.
+          The longest and shortest stretches on that ellipse will get names in a moment —
+          after you can see them.
         </p>
       </li>
     </ol>
   </section>
 
   <section class="worked-example" aria-label="Worked example">
-    <h2>One concrete example</h2>
+    <h2>One concrete example (tilted)</h2>
     <p>
-      Here’s a simple matrix: stretch sideways by $2$, squash up–down by $\\tfrac{1}{2}$.
-      Off-diagonal entries are zero, so the axes stay lined up with the coordinate grid.
+      Here is a matrix that is <em>not</em> diagonal — so the ellipse will not line up with the axes,
+      and the stretch lengths will <em>not</em> equal the numbers on the diagonal of $A$.
     </p>
     <div class="math">
-      $$A = \\begin{bmatrix} 2 & 0 \\\\ 0 & 0.5 \\end{bmatrix}$$
+      $$A = \\begin{bmatrix} 1.5 & 1.0 \\\\ 0.2 & 1.2 \\end{bmatrix}$$
     </div>
     <ul class="example-bullets">
-      <li>Right unit vector $x=(1,0)$ becomes $Ax=(2,0)$ — twice as long.</li>
-      <li>Up unit vector $x=(0,1)$ becomes $Ax=(0,0.5)$ — half as long.</li>
-      <li>Do that for every direction on the circle → the ellipse on the right.</li>
+      <li>$(1,0)$ goes to $A(1,0)=(1.5,\\,0.2)$ — length $\\sqrt{1.5^{2}+0.2^{2}}\\approx 1.51$.</li>
+      <li>$(0,1)$ goes to $A(0,1)=(1.0,\\,1.2)$ — length $\\sqrt{1^{2}+1.2^{2}}\\approx 1.56$.</li>
+      <li>Those are just two directions. Sweep the whole circle → the ellipse on the right.</li>
     </ul>
     <div class="grid-2 ellipse-pair">
       <div class="panel">
         <h2>Before: unit circle</h2>
-        <canvas id="exIn" width="360" height="360" aria-label="Example unit circle"></canvas>
-        <p class="hint">Orange arrow $(1,0)$. Blue arrow $(0,1)$.</p>
+        <canvas id="exIn" width="320" height="320" aria-label="Example unit circle"></canvas>
+        <p class="hint">Orange $(1,0)$. Blue $(0,1)$.</p>
       </div>
       <div class="panel">
         <h2>After: multiply by $A$</h2>
-        <canvas id="exOut" width="360" height="360" aria-label="Example ellipse"></canvas>
-        <p class="hint">Same arrows after $A$: lengths $2$ and $0.5$. Those lengths are $\\sigma_1$ and $\\sigma_2$.</p>
+        <canvas id="exOut" width="320" height="320" aria-label="Example ellipse"></canvas>
+        <p class="hint">Same two arrows after $A$. The whole circle becomes a tilted ellipse.</p>
       </div>
+    </div>
+    <p class="example-takeaway" id="exampleStretch"></p>
+  </section>
+
+  <section class="demo-block" aria-label="Analysis playground">
+    <h2>Try your own matrix</h2>
+    <p class="demo-intro">
+      Edit the four entries of $A$. Watch the ellipse, and read off the longest and shortest
+      stretches over the circle. Those two lengths are the <strong>singular values</strong>
+      $\\sigma_1 \\ge \\sigma_2$.
+    </p>
+
+    <div class="controls">
+      <div class="control-row">
+        <label class="slider">
+          <span class="slider-label">$a_{11}$ <strong id="a11Val">1.20</strong></span>
+          <input id="a11" type="range" min="-2.5" max="2.5" step="0.05" value="1.2" />
+        </label>
+        <label class="slider">
+          <span class="slider-label">$a_{12}$ <strong id="a12Val">0.90</strong></span>
+          <input id="a12" type="range" min="-2.5" max="2.5" step="0.05" value="0.9" />
+        </label>
+      </div>
+      <div class="control-row">
+        <label class="slider">
+          <span class="slider-label">$a_{21}$ <strong id="a21Val">0.40</strong></span>
+          <input id="a21" type="range" min="-2.5" max="2.5" step="0.05" value="0.4" />
+        </label>
+        <label class="slider">
+          <span class="slider-label">$a_{22}$ <strong id="a22Val">1.50</strong></span>
+          <input id="a22" type="range" min="-2.5" max="2.5" step="0.05" value="1.5" />
+        </label>
+      </div>
+      <div class="control-actions">
+        <div class="btns">
+          <button type="button" data-amat="default">Default</button>
+          <button type="button" data-amat="example" class="secondary">Match example</button>
+          <button type="button" data-amat="diag" class="secondary">Diagonal</button>
+          <button type="button" data-amat="flat" class="secondary">Nearly flat</button>
+        </div>
+        <p class="help">Compare diagonal (axes lined up) vs tilted. Nearly flat → one stretch near zero.</p>
+      </div>
+    </div>
+
+    <p class="formula" id="analysisA" aria-live="polite"></p>
+    <p class="status" id="stretchReadout" aria-live="polite"></p>
+
+    <div class="grid-2 ellipse-pair">
+      <div class="panel">
+        <h2>Before: unit circle</h2>
+        <canvas id="anIn" width="360" height="360" aria-label="Analysis unit circle"></canvas>
+        <p class="hint">
+          Orange / blue: the two special input directions $v_1$, $v_2$ (right singular vectors).
+          Moving dot: one $x$ on the circle.
+        </p>
+      </div>
+      <div class="panel">
+        <h2>After: multiply by $A$</h2>
+        <canvas id="anOut" width="360" height="360" aria-label="Analysis ellipse"></canvas>
+        <p class="hint">
+          Axis lengths are $\\sigma_1$ and $\\sigma_2$. Arrows $\\sigma_j u_j = A v_j$.
+          Moving dot: $Ax$.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="movie-block" aria-label="Rotate stretch rotate">
+    <h2>How $A$ does it: rotate, stretch, rotate</h2>
+    <p class="demo-intro">
+      Any $2\\times 2$ $A$ can be written as three easy steps applied right-to-left.
+      The pictures below use the SVD of <em>your</em> matrix from the section above.
+    </p>
+    <div class="movie-row" id="movieRow">
+      <div class="panel movie-panel">
+        <h2>1 · Start</h2>
+        <canvas id="mv0" width="200" height="200" aria-label="Unit circle"></canvas>
+        <p class="hint">Unit circle.</p>
+      </div>
+      <div class="panel movie-panel">
+        <h2>2 · Re-aim ($V^{\\top}$)</h2>
+        <canvas id="mv1" width="200" height="200" aria-label="After V transpose"></canvas>
+        <p class="hint">Rotate so special directions sit on the axes.</p>
+      </div>
+      <div class="panel movie-panel">
+        <h2>3 · Stretch ($\\Sigma$)</h2>
+        <canvas id="mv2" width="200" height="200" aria-label="After Sigma"></canvas>
+        <p class="hint">Stretch axes by $\\sigma_1$, $\\sigma_2$.</p>
+      </div>
+      <div class="panel movie-panel">
+        <h2>4 · Re-aim ($U$)</h2>
+        <canvas id="mv3" width="200" height="200" aria-label="After U"></canvas>
+        <p class="hint">Rotate to the final ellipse — same as $Ax$.</p>
+      </div>
+    </div>
+    <div class="math">
+      $$A = U\\,\\mathrm{diag}(\\sigma_1,\\sigma_2)\\,V^{\\top}$$
     </div>
     <p class="example-takeaway">
-      So for this $A$, the singular values are just $\\sigma_1=2$ and $\\sigma_2=0.5$ —
-      the ellipse’s long and short axis lengths. The
+      In words: rotate → stretch by $\\sigma_1$ and $\\sigma_2$ → rotate again.
+      That recipe is the
       <a href="https://en.wikipedia.org/wiki/Singular_value_decomposition" target="_blank" rel="noopener noreferrer">singular value decomposition</a>
-      (SVD) finds those stretches (and two rotations) for <em>any</em> $2\\times 2$ matrix,
-      even when the ellipse is tilted.
+      (SVD).
     </p>
   </section>
 
-  <section class="demo-block" aria-label="Interactive demo">
-    <h2>Try it yourself</h2>
+  <section class="demo-block" aria-label="Synthesis playground">
+    <h2>Rebuild $A$ from the pieces</h2>
     <p class="demo-intro">
-      Change the two stretch amounts and two twist angles.
-      The matrix $A$ is rebuilt as rotate → stretch → rotate again.
-      Watch the heatmap and the ellipse update together.
+      Now scrub the stretches and the two rotation angles yourself.
+      $A$ is rebuilt as $U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$.
     </p>
 
-  <div class="controls">
-    <div class="control-row">
-      <label class="slider">
-        <span class="slider-label">Long stretch $\\sigma_1$ <strong id="s1Val">2.20</strong></span>
-        <input id="s1" type="range" min="0" max="3" step="0.05" value="2.2" />
-      </label>
-      <p class="help">How far the ellipse reaches along its long axis.</p>
-    </div>
-    <div class="control-row">
-      <label class="slider">
-        <span class="slider-label">Short stretch $\\sigma_2$ <strong id="s2Val">0.80</strong></span>
-        <input id="s2" type="range" min="0" max="3" step="0.05" value="0.8" />
-      </label>
-      <p class="help">How far along the short axis. Zero → flat line (the matrix “loses a dimension”).</p>
-    </div>
-    <div class="control-row">
-      <label class="slider">
-        <span class="slider-label">Input twist ($V$) <strong id="thVVal">25°</strong></span>
-        <input id="thV" type="range" min="-90" max="90" step="1" value="25" />
-      </label>
-      <p class="help">Which directions on the circle get the long vs short stretch.</p>
-    </div>
-    <div class="control-row">
-      <label class="slider">
-        <span class="slider-label">Output twist ($U$) <strong id="thUVal">40°</strong></span>
-        <input id="thU" type="range" min="-90" max="90" step="1" value="40" />
-      </label>
-      <p class="help">Which way the stretched ellipse points in the plane.</p>
-    </div>
-    <div class="control-actions">
-      <div class="btns">
-        <button type="button" data-preset="stretch">Stretch</button>
-        <button type="button" data-preset="circle" class="secondary">Same stretches</button>
-        <button type="button" data-preset="flat" class="secondary">Flatten</button>
-        <button type="button" data-preset="tilt" class="secondary">Tilted</button>
+    <div class="controls">
+      <div class="control-row">
+        <label class="slider">
+          <span class="slider-label">Long stretch $\\sigma_1$ <strong id="s1Val">2.20</strong></span>
+          <input id="s1" type="range" min="0" max="3" step="0.05" value="2.2" />
+        </label>
+        <p class="help">Long axis of the ellipse.</p>
       </div>
-      <p class="help">Try a preset, then drag. Watch the matrix numbers change as you move $\\sigma$ and the angles.</p>
+      <div class="control-row">
+        <label class="slider">
+          <span class="slider-label">Short stretch $\\sigma_2$ <strong id="s2Val">0.80</strong></span>
+          <input id="s2" type="range" min="0" max="3" step="0.05" value="0.8" />
+        </label>
+        <p class="help">Short axis. Zero → everything collapses to a line.</p>
+      </div>
+      <div class="control-row">
+        <label class="slider">
+          <span class="slider-label">Input twist ($V$) <strong id="thVVal">25°</strong></span>
+          <input id="thV" type="range" min="-90" max="90" step="1" value="25" />
+        </label>
+        <p class="help">Which circle directions get the long vs short stretch.</p>
+      </div>
+      <div class="control-row">
+        <label class="slider">
+          <span class="slider-label">Output twist ($U$) <strong id="thUVal">40°</strong></span>
+          <input id="thU" type="range" min="-90" max="90" step="1" value="40" />
+        </label>
+        <p class="help">Which way the finished ellipse points.</p>
+      </div>
+      <div class="control-actions">
+        <div class="btns">
+          <button type="button" data-preset="stretch">Stretch</button>
+          <button type="button" data-preset="circle" class="secondary">Same stretches</button>
+          <button type="button" data-preset="flat" class="secondary">Flatten</button>
+          <button type="button" data-preset="tilt" class="secondary">Tilted</button>
+        </div>
+        <p class="help">Presets set $\\sigma$ and both angles.</p>
+      </div>
     </div>
-  </div>
 
-  <div class="shared">
-    <div class="panel">
-      <h2>The matrix $A$ (built from the pieces above)</h2>
-      <canvas id="Aheat" width="160" height="160" aria-label="Heatmap of matrix A"></canvas>
-      <p class="formula" id="matrixReadout" aria-live="polite"></p>
-    </div>
-    <div class="panel sigma-bars-panel">
-      <h2>Stretch amounts $\\sigma_1$, $\\sigma_2$</h2>
-      <canvas id="sigmaBars" width="200" height="120" aria-label="Bar chart of singular values"></canvas>
-      <p class="status" id="sigmaReadout" aria-live="polite"></p>
-    </div>
-  </div>
+    <p class="formula" id="synthA" aria-live="polite"></p>
+    <p class="status" id="synthReadout" aria-live="polite"></p>
 
-  <div class="grid-2 ellipse-pair">
-    <div class="panel">
-      <h2>Before: unit circle</h2>
-      <canvas id="inPlane" width="360" height="360" aria-label="Unit circle with right singular vectors"></canvas>
-      <p class="hint">
-        Orange and blue arrows are the two special input directions ($v_1$, $v_2$).
-        The moving dot is one vector $x$ riding around the circle.
-      </p>
+    <div class="grid-2 ellipse-pair">
+      <div class="panel">
+        <h2>Before: unit circle</h2>
+        <canvas id="syIn" width="360" height="360" aria-label="Synthesis unit circle"></canvas>
+      </div>
+      <div class="panel">
+        <h2>After: multiply by rebuilt $A$</h2>
+        <canvas id="syOut" width="360" height="360" aria-label="Synthesis ellipse"></canvas>
+      </div>
     </div>
-    <div class="panel">
-      <h2>After: multiply by $A$</h2>
-      <canvas id="outPlane" width="360" height="360" aria-label="Ellipse with left singular vectors scaled by sigma"></canvas>
-      <p class="hint">
-        Same vectors after $A$. Axis lengths are $\\sigma_1$ and $\\sigma_2$.
-        The moving dot is $Ax$ — where that input landed.
-      </p>
-    </div>
-  </div>
   </section>
 
-  <section class="appendix" id="appendix" aria-label="Appendix">
-    <h2>Appendix: names for the pieces</h2>
-    <h3>Singular values $\\sigma$</h3>
+  <section class="appendix" id="appendix" aria-label="Takeaways">
+    <h2>Takeaways</h2>
+    <ul class="example-bullets">
+      <li>$A$ sends the unit circle to an ellipse.</li>
+      <li>$\\sigma_1$ and $\\sigma_2$ are that ellipse’s long and short axis lengths — not (in general) the diagonal of $A$.</li>
+      <li>Any $A$ is rotate → stretch → rotate: $A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$.</li>
+    </ul>
     <p>
-      Just the two stretch lengths, with $\\sigma_1 \\ge \\sigma_2 \\ge 0$ by convention.
-      If $\\sigma_2 = 0$, every output lies on a line — people say the matrix has
-      <em>rank 1</em>. If $\\sigma_1 = \\sigma_2$, every direction stretches the same, so you get a circle.
-    </p>
-    <h3>Matrices $U$ and $V$</h3>
-    <p>
-      Each is a pure rotation (built from one angle). Columns of $V$ are the special input
-      directions; columns of $U$ are the matching output directions.
-      The stretch turns $v_j$ into $\\sigma_j u_j$: same idea as “that arrow got longer by $\\sigma_j$.”
-    </p>
-    <h3>Putting $A$ back together</h3>
-    <p>
-      Multiply rotate → stretch → rotate and you recover every entry of $A$:
-    </p>
-    <div class="math">
-      $$A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$$
-    </div>
-    <p>
-      That factorization is the SVD. Next page: keep only the biggest stretches and throw the
-      small ones away.
+      <a href="./truncate.html">Next →</a>
+      keep only the biggest stretches and throw the small ones away.
     </p>
   </section>
 `;
 
-type Factors = { s1: number; s2: number; thVDeg: number; thUDeg: number };
+type Factors = AngleFactors;
 
-const PRESETS: Record<string, Factors> = {
+const A_PRESETS: Record<string, [number, number, number, number]> = {
+  default: [1.2, 0.9, 0.4, 1.5],
+  example: [1.5, 1.0, 0.2, 1.2],
+  diag: [2.0, 0, 0, 0.6],
+  flat: [1.8, 0.9, 0.85, 0.45],
+};
+
+const SYNTH_PRESETS: Record<string, Factors> = {
   stretch: { s1: 2.4, s2: 0.7, thVDeg: 0, thUDeg: 0 },
   circle: { s1: 1.4, s2: 1.4, thVDeg: 0, thUDeg: 35 },
   flat: { s1: 2.2, s2: 0, thVDeg: 20, thUDeg: 55 },
@@ -206,6 +278,25 @@ const PRESETS: Record<string, Factors> = {
 };
 
 const el = {
+  a11: app.querySelector<HTMLInputElement>("#a11")!,
+  a12: app.querySelector<HTMLInputElement>("#a12")!,
+  a21: app.querySelector<HTMLInputElement>("#a21")!,
+  a22: app.querySelector<HTMLInputElement>("#a22")!,
+  a11Val: app.querySelector<HTMLElement>("#a11Val")!,
+  a12Val: app.querySelector<HTMLElement>("#a12Val")!,
+  a21Val: app.querySelector<HTMLElement>("#a21Val")!,
+  a22Val: app.querySelector<HTMLElement>("#a22Val")!,
+  analysisA: app.querySelector<HTMLElement>("#analysisA")!,
+  stretchReadout: app.querySelector<HTMLElement>("#stretchReadout")!,
+  exampleStretch: app.querySelector<HTMLElement>("#exampleStretch")!,
+  exIn: app.querySelector<HTMLCanvasElement>("#exIn")!,
+  exOut: app.querySelector<HTMLCanvasElement>("#exOut")!,
+  anIn: app.querySelector<HTMLCanvasElement>("#anIn")!,
+  anOut: app.querySelector<HTMLCanvasElement>("#anOut")!,
+  mv0: app.querySelector<HTMLCanvasElement>("#mv0")!,
+  mv1: app.querySelector<HTMLCanvasElement>("#mv1")!,
+  mv2: app.querySelector<HTMLCanvasElement>("#mv2")!,
+  mv3: app.querySelector<HTMLCanvasElement>("#mv3")!,
   s1: app.querySelector<HTMLInputElement>("#s1")!,
   s2: app.querySelector<HTMLInputElement>("#s2")!,
   thV: app.querySelector<HTMLInputElement>("#thV")!,
@@ -214,14 +305,10 @@ const el = {
   s2Val: app.querySelector<HTMLElement>("#s2Val")!,
   thVVal: app.querySelector<HTMLElement>("#thVVal")!,
   thUVal: app.querySelector<HTMLElement>("#thUVal")!,
-  matrixReadout: app.querySelector<HTMLElement>("#matrixReadout")!,
-  sigmaReadout: app.querySelector<HTMLElement>("#sigmaReadout")!,
-  Aheat: app.querySelector<HTMLCanvasElement>("#Aheat")!,
-  sigmaBars: app.querySelector<HTMLCanvasElement>("#sigmaBars")!,
-  exIn: app.querySelector<HTMLCanvasElement>("#exIn")!,
-  exOut: app.querySelector<HTMLCanvasElement>("#exOut")!,
-  inPlane: app.querySelector<HTMLCanvasElement>("#inPlane")!,
-  outPlane: app.querySelector<HTMLCanvasElement>("#outPlane")!,
+  synthA: app.querySelector<HTMLElement>("#synthA")!,
+  synthReadout: app.querySelector<HTMLElement>("#synthReadout")!,
+  syIn: app.querySelector<HTMLCanvasElement>("#syIn")!,
+  syOut: app.querySelector<HTMLCanvasElement>("#syOut")!,
 };
 
 const ACCENT = "#0072b2";
@@ -233,11 +320,21 @@ function fmt(v: number): string {
   return v.toFixed(2);
 }
 
-function rad(d: number): number {
-  return (d * Math.PI) / 180;
+function readA(): Matrix {
+  return fromNested([
+    [Number(el.a11.value), Number(el.a12.value)],
+    [Number(el.a21.value), Number(el.a22.value)],
+  ]);
 }
 
-function readFactors(): Factors {
+function setA(a11: number, a12: number, a21: number, a22: number): void {
+  el.a11.value = String(a11);
+  el.a12.value = String(a12);
+  el.a21.value = String(a21);
+  el.a22.value = String(a22);
+}
+
+function readSynth(): Factors {
   return {
     s1: Number(el.s1.value),
     s2: Number(el.s2.value),
@@ -246,83 +343,24 @@ function readFactors(): Factors {
   };
 }
 
-function rot2(theta: number): Matrix {
-  const c = Math.cos(theta);
-  const s = Math.sin(theta);
-  return fromNested([
-    [c, -s],
-    [s, c],
-  ]);
-}
-
-function applyA(A: Matrix, x: number, y: number): [number, number] {
-  return [
-    get(A, 0, 0) * x + get(A, 0, 1) * y,
-    get(A, 1, 0) * x + get(A, 1, 1) * y,
-  ];
-}
-
-function setFactors(f: Factors): void {
+function setSynth(f: Factors): void {
   el.s1.value = String(f.s1);
   el.s2.value = String(f.s2);
   el.thV.value = String(f.thVDeg);
   el.thU.value = String(f.thUDeg);
 }
 
-function syncLabels(f: Factors): void {
-  el.s1Val.textContent = fmt(Number(el.s1.value));
-  el.s2Val.textContent = fmt(Number(el.s2.value));
-  el.thVVal.textContent = `${Math.round(f.thVDeg)}°`;
-  el.thUVal.textContent = `${Math.round(f.thUDeg)}°`;
+let analysisFrame: EllipseFrame | null = null;
+let synthFrame: EllipseFrame | null = null;
+
+function rebuildAnalysis(): EllipseFrame {
+  analysisFrame = frameFromMatrix(readA());
+  return analysisFrame;
 }
 
-type Frame = {
-  A: Matrix;
-  U: Matrix;
-  V: Matrix;
-  sigma: [number, number];
-  outScale: number;
-};
-
-let frame: Frame | null = null;
-
-function rebuildFrame(): Frame {
-  const f = readFactors();
-  const U = rot2(rad(f.thUDeg));
-  const V = rot2(rad(f.thVDeg));
-  const S = fromNested([
-    [f.s1, 0],
-    [0, f.s2],
-  ]);
-  const A = matmul(matmul(U, S), transpose(V));
-  const outScale = Math.max(2.4, f.s1 * 1.25, 1.2);
-  frame = { A, U, V, sigma: [f.s1, f.s2], outScale };
-  return frame;
-}
-
-function drawSigmaBars(canvas: HTMLCanvasElement, s1: number, s2: number): void {
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  const w = canvas.width;
-  const h = canvas.height;
-  ctx.clearRect(0, 0, w, h);
-  const peak = Math.max(s1, s2, 1e-9);
-  const gap = 16;
-  const barW = (w - gap * 3) / 2;
-  const colors = [ACCENT2, ACCENT];
-  const vals = [s1, s2];
-  const labels = ["σ₁", "σ₂"];
-  for (let i = 0; i < 2; i++) {
-    const bh = (vals[i] / peak) * (h - 28);
-    const x = gap + i * (barW + gap);
-    const y = h - 18 - bh;
-    ctx.fillStyle = colors[i];
-    ctx.fillRect(x, y, barW, bh);
-    ctx.fillStyle = INK;
-    ctx.font = "600 12px IBM Plex Mono, monospace";
-    ctx.textAlign = "center";
-    ctx.fillText(labels[i], x + barW / 2, h - 4);
-  }
+function rebuildSynth(): EllipseFrame {
+  synthFrame = frameFromFactors(readSynth());
+  return synthFrame;
 }
 
 function drawAxes(
@@ -371,10 +409,10 @@ function drawArrow(
   if (len < 2) return;
   const ux = dx / len;
   const uy = dy / len;
-  const head = 10;
+  const head = 9;
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
-  ctx.lineWidth = 2.5;
+  ctx.lineWidth = 2.25;
   ctx.beginPath();
   ctx.moveTo(x0, y0);
   ctx.lineTo(x1, y1);
@@ -385,12 +423,12 @@ function drawArrow(
   ctx.lineTo(x1 - head * ux - 0.5 * head * uy, y1 - head * uy + 0.5 * head * ux);
   ctx.closePath();
   ctx.fill();
-  ctx.font = "600 13px DM Sans, system-ui, sans-serif";
+  ctx.font = "600 12px DM Sans, system-ui, sans-serif";
   ctx.textAlign = "left";
-  ctx.fillText(label, x1 + 8 * ux, y1 + 8 * uy);
+  ctx.fillText(label, x1 + 7 * ux, y1 + 7 * uy);
 }
 
-function drawCircleOrEllipse(
+function drawCurve(
   ctx: CanvasRenderingContext2D,
   cx: number,
   cy: number,
@@ -418,7 +456,7 @@ function paintCanvas(
   drawContent: (ctx: CanvasRenderingContext2D, cx: number, cy: number, scale: number) => void,
 ): void {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const css = canvas.clientWidth || 360;
+  const css = canvas.clientWidth || canvas.width || 200;
   canvas.width = Math.round(css * dpr);
   canvas.height = Math.round(css * dpr);
   const ctx = canvas.getContext("2d");
@@ -430,131 +468,191 @@ function paintCanvas(
   ctx.fillRect(0, 0, w, w);
   const cx = w / 2;
   const cy = w / 2;
-  const scale = (0.42 * w) / worldR;
+  const scale = (0.4 * w) / worldR;
   drawAxes(ctx, cx, cy, scale, worldR);
   drawContent(ctx, cx, cy, scale);
 }
 
-const EXAMPLE_A = fromNested([
-  [2, 0],
-  [0, 0.5],
-]);
-const EXAMPLE_OUT_SCALE = 2.6;
-
-function paintExample(): void {
-  paintCanvas(el.exIn, 1.35, (ctx, cx, cy, scale) => {
-    drawCircleOrEllipse(ctx, cx, cy, scale, (t) => [Math.cos(t), Math.sin(t)], INK);
-    drawArrow(ctx, cx, cy, scale, 1, 0, ACCENT2, "(1, 0)");
-    drawArrow(ctx, cx, cy, scale, 0, 1, ACCENT, "(0, 1)");
-  });
-  paintCanvas(el.exOut, EXAMPLE_OUT_SCALE, (ctx, cx, cy, scale) => {
-    drawCircleOrEllipse(
-      ctx,
-      cx,
-      cy,
-      scale,
-      (t) => applyA(EXAMPLE_A, Math.cos(t), Math.sin(t)),
-      INK,
-    );
-    drawArrow(ctx, cx, cy, scale, 2, 0, ACCENT2, "(2, 0)");
-    drawArrow(ctx, cx, cy, scale, 0, 0.5, ACCENT, "(0, 0.5)");
-  });
-}
-
-function paintPlanes(probeAngle: number): void {
-  const f = frame ?? rebuildFrame();
+function paintPair(
+  inC: HTMLCanvasElement,
+  outC: HTMLCanvasElement,
+  f: EllipseFrame,
+  probe: number,
+  labels: { v1: string; v2: string; u1: string; u2: string },
+): void {
   const { A, U, V, sigma, outScale } = f;
-
-  paintCanvas(el.inPlane, 1.35, (ctx, cx, cy, scale) => {
-    drawCircleOrEllipse(ctx, cx, cy, scale, (t) => [Math.cos(t), Math.sin(t)], INK);
-    drawArrow(ctx, cx, cy, scale, get(V, 0, 0), get(V, 1, 0), ACCENT2, "v₁");
-    drawArrow(ctx, cx, cy, scale, get(V, 0, 1), get(V, 1, 1), ACCENT, "v₂");
-    const px = Math.cos(probeAngle);
-    const py = Math.sin(probeAngle);
-    const [qx, qy] = toCanvas(cx, cy, scale, px, py);
+  paintCanvas(inC, 1.35, (ctx, cx, cy, scale) => {
+    drawCurve(ctx, cx, cy, scale, (t) => [Math.cos(t), Math.sin(t)], INK);
+    drawArrow(ctx, cx, cy, scale, get(V, 0, 0), get(V, 1, 0), ACCENT2, labels.v1);
+    drawArrow(ctx, cx, cy, scale, get(V, 0, 1), get(V, 1, 1), ACCENT, labels.v2);
+    const [qx, qy] = toCanvas(cx, cy, scale, Math.cos(probe), Math.sin(probe));
     ctx.fillStyle = INK;
     ctx.beginPath();
-    ctx.arc(qx, qy, 5, 0, Math.PI * 2);
+    ctx.arc(qx, qy, 4.5, 0, Math.PI * 2);
     ctx.fill();
-    ctx.font = "500 12px DM Sans, system-ui, sans-serif";
-    ctx.fillStyle = "rgba(45,45,45,0.75)";
-    ctx.fillText("x", qx + 8, qy - 8);
   });
-
-  paintCanvas(el.outPlane, outScale, (ctx, cx, cy, scale) => {
-    drawCircleOrEllipse(
-      ctx,
-      cx,
-      cy,
-      scale,
-      (t) => applyA(A, Math.cos(t), Math.sin(t)),
-      INK,
-    );
+  paintCanvas(outC, outScale, (ctx, cx, cy, scale) => {
+    drawCurve(ctx, cx, cy, scale, (t) => applyMat2(A, Math.cos(t), Math.sin(t)), INK);
     const [s1, s2] = sigma;
-    drawArrow(ctx, cx, cy, scale, get(U, 0, 0) * s1, get(U, 1, 0) * s1, ACCENT2, "σ₁u₁");
+    drawArrow(ctx, cx, cy, scale, get(U, 0, 0) * s1, get(U, 1, 0) * s1, ACCENT2, labels.u1);
     if (s2 > 1e-6) {
-      drawArrow(ctx, cx, cy, scale, get(U, 0, 1) * s2, get(U, 1, 1) * s2, ACCENT, "σ₂u₂");
+      drawArrow(ctx, cx, cy, scale, get(U, 0, 1) * s2, get(U, 1, 1) * s2, ACCENT, labels.u2);
     }
-    const [ax, ay] = applyA(A, Math.cos(probeAngle), Math.sin(probeAngle));
+    const [ax, ay] = applyMat2(A, Math.cos(probe), Math.sin(probe));
     const [qx, qy] = toCanvas(cx, cy, scale, ax, ay);
     ctx.fillStyle = INK;
     ctx.beginPath();
-    ctx.arc(qx, qy, 5, 0, Math.PI * 2);
+    ctx.arc(qx, qy, 4.5, 0, Math.PI * 2);
     ctx.fill();
-    ctx.font = "500 12px DM Sans, system-ui, sans-serif";
-    ctx.fillStyle = "rgba(45,45,45,0.75)";
-    ctx.fillText("Ax", qx + 8, qy - 8);
   });
 }
 
-function redrawStatic(): void {
-  const factors = readFactors();
-  syncLabels(factors);
-  const f = rebuildFrame();
+function paintExample(): void {
+  const f = frameFromMatrix(EXAMPLE_A);
+  paintCanvas(el.exIn, 1.35, (ctx, cx, cy, scale) => {
+    drawCurve(ctx, cx, cy, scale, (t) => [Math.cos(t), Math.sin(t)], INK);
+    drawArrow(ctx, cx, cy, scale, 1, 0, ACCENT2, "(1, 0)");
+    drawArrow(ctx, cx, cy, scale, 0, 1, ACCENT, "(0, 1)");
+  });
+  paintCanvas(el.exOut, f.outScale, (ctx, cx, cy, scale) => {
+    drawCurve(ctx, cx, cy, scale, (t) => applyMat2(EXAMPLE_A, Math.cos(t), Math.sin(t)), INK);
+    const [a10, a11] = applyMat2(EXAMPLE_A, 1, 0);
+    const [a20, a21] = applyMat2(EXAMPLE_A, 0, 1);
+    drawArrow(ctx, cx, cy, scale, a10, a11, ACCENT2, "A(1,0)");
+    drawArrow(ctx, cx, cy, scale, a20, a21, ACCENT, "A(0,1)");
+    drawArrow(ctx, cx, cy, scale, get(f.U, 0, 0) * f.sigma[0], get(f.U, 1, 0) * f.sigma[0], "#666", "long axis");
+  });
+  el.exampleStretch.textContent =
+    `Longest stretch on this ellipse: σ₁ ≈ ${fmt(f.sigma[0])}. ` +
+    `Shortest: σ₂ ≈ ${fmt(f.sigma[1])}. ` +
+    `Compare to the diagonal entries 1.5 and 1.2 — not the same.`;
+}
+
+function paintMovie(f: EllipseFrame): void {
+  const r = f.outScale;
+  paintCanvas(el.mv0, 1.35, (ctx, cx, cy, scale) => {
+    drawCurve(ctx, cx, cy, scale, (t) => [Math.cos(t), Math.sin(t)], INK);
+  });
+  paintCanvas(el.mv1, 1.35, (ctx, cx, cy, scale) => {
+    drawCurve(ctx, cx, cy, scale, (t) => applyMat2(f.Vt, Math.cos(t), Math.sin(t)), INK);
+  });
+  paintCanvas(el.mv2, r, (ctx, cx, cy, scale) => {
+    drawCurve(ctx, cx, cy, scale, (t) => applyMat2(f.SV, Math.cos(t), Math.sin(t)), INK);
+  });
+  paintCanvas(el.mv3, r, (ctx, cx, cy, scale) => {
+    drawCurve(ctx, cx, cy, scale, (t) => applyMat2(f.A, Math.cos(t), Math.sin(t)), INK);
+  });
+}
+
+function syncAnalysisLabels(): void {
+  el.a11Val.textContent = fmt(Number(el.a11.value));
+  el.a12Val.textContent = fmt(Number(el.a12.value));
+  el.a21Val.textContent = fmt(Number(el.a21.value));
+  el.a22Val.textContent = fmt(Number(el.a22.value));
+}
+
+function redrawAnalysis(): void {
+  syncAnalysisLabels();
+  const f = rebuildAnalysis();
   const A = f.A;
-  drawHeatmap(el.Aheat, A, 3);
-  drawSigmaBars(el.sigmaBars, f.sigma[0], f.sigma[1]);
-  el.matrixReadout.textContent =
-    `[[${fmt(get(A, 0, 0))}, ${fmt(get(A, 0, 1))}],  [${fmt(get(A, 1, 0))}, ${fmt(get(A, 1, 1))}]]`;
-  el.sigmaReadout.textContent =
-    `σ₁ = ${fmt(f.sigma[0])} · σ₂ = ${fmt(f.sigma[1])} · |det A| = σ₁σ₂ = ${fmt(f.sigma[0] * f.sigma[1])}`;
+  el.analysisA.textContent =
+    `A = [[${fmt(get(A, 0, 0))}, ${fmt(get(A, 0, 1))}],  [${fmt(get(A, 1, 0))}, ${fmt(get(A, 1, 1))}]]`;
+  el.stretchReadout.textContent =
+    `Longest stretch σ₁ = ${fmt(f.sigma[0])} · shortest stretch σ₂ = ${fmt(f.sigma[1])} ` +
+    `· |det A| = ${fmt(Math.abs(get(A, 0, 0) * get(A, 1, 1) - get(A, 0, 1) * get(A, 1, 0)))}`;
+  paintMovie(f);
   void window.MathJax?.typesetPromise?.([app]);
 }
+
+function redrawSynth(): void {
+  const factors = readSynth();
+  el.s1Val.textContent = fmt(factors.s1);
+  el.s2Val.textContent = fmt(factors.s2);
+  el.thVVal.textContent = `${Math.round(factors.thVDeg)}°`;
+  el.thUVal.textContent = `${Math.round(factors.thUDeg)}°`;
+  const f = rebuildSynth();
+  const A = f.A;
+  el.synthA.textContent =
+    `A = [[${fmt(get(A, 0, 0))}, ${fmt(get(A, 0, 1))}],  [${fmt(get(A, 1, 0))}, ${fmt(get(A, 1, 1))}]]`;
+  el.synthReadout.textContent =
+    `σ₁ = ${fmt(f.sigma[0])} · σ₂ = ${fmt(f.sigma[1])} · |det A| = σ₁σ₂ = ${fmt(f.sigma[0] * f.sigma[1])}`;
+}
+
+for (const input of [el.a11, el.a12, el.a21, el.a22]) {
+  input.addEventListener("input", redrawAnalysis);
+}
+
+app.querySelectorAll<HTMLButtonElement>("[data-amat]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const p = A_PRESETS[btn.dataset.amat ?? ""];
+    if (!p) return;
+    setA(...p);
+    redrawAnalysis();
+  });
+});
 
 function onSigmaInput(which: "s1" | "s2"): void {
   const s1 = Number(el.s1.value);
   const s2 = Number(el.s2.value);
   if (which === "s1" && s1 < s2) el.s2.value = el.s1.value;
   if (which === "s2" && s2 > s1) el.s1.value = el.s2.value;
-  redrawStatic();
+  redrawSynth();
 }
 
 el.s1.addEventListener("input", () => onSigmaInput("s1"));
 el.s2.addEventListener("input", () => onSigmaInput("s2"));
-el.thV.addEventListener("input", redrawStatic);
-el.thU.addEventListener("input", redrawStatic);
+el.thV.addEventListener("input", redrawSynth);
+el.thU.addEventListener("input", redrawSynth);
 
 app.querySelectorAll<HTMLButtonElement>("[data-preset]").forEach((btn) => {
   btn.addEventListener("click", () => {
-    const p = PRESETS[btn.dataset.preset ?? ""];
+    const p = SYNTH_PRESETS[btn.dataset.preset ?? ""];
     if (!p) return;
-    setFactors(p);
-    redrawStatic();
+    setSynth(p);
+    redrawSynth();
   });
 });
 
-redrawStatic();
 paintExample();
+redrawAnalysis();
+redrawSynth();
 
 let probe = 0.4;
 function tick(): void {
   probe += 0.018;
-  paintPlanes(probe);
+  const af = analysisFrame ?? rebuildAnalysis();
+  const sf = synthFrame ?? rebuildSynth();
+  paintPair(el.anIn, el.anOut, af, probe, {
+    v1: "v₁",
+    v2: "v₂",
+    u1: "σ₁u₁",
+    u2: "σ₂u₂",
+  });
+  paintPair(el.syIn, el.syOut, sf, probe, {
+    v1: "v₁",
+    v2: "v₂",
+    u1: "σ₁u₁",
+    u2: "σ₂u₂",
+  });
   requestAnimationFrame(tick);
 }
 requestAnimationFrame(tick);
 
 window.addEventListener("resize", () => {
   paintExample();
-  paintPlanes(probe);
+  const af = analysisFrame ?? rebuildAnalysis();
+  paintMovie(af);
+  paintPair(el.anIn, el.anOut, af, probe, {
+    v1: "v₁",
+    v2: "v₂",
+    u1: "σ₁u₁",
+    u2: "σ₂u₂",
+  });
+  const sf = synthFrame ?? rebuildSynth();
+  paintPair(el.syIn, el.syOut, sf, probe, {
+    v1: "v₁",
+    v2: "v₂",
+    u1: "σ₁u₁",
+    u2: "σ₂u₂",
+  });
 });

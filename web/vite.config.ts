@@ -15,4 +15,13 @@ export default defineConfig({
       "js-pytorch": path.resolve(root, "src/vendor/js-pytorch-browser.js"),
     },
   },
+  build: {
+    rollupOptions: {
+      input: {
+        main: path.resolve(root, "index.html"),
+        chapter2: path.resolve(root, "chapter2.html"),
+        chapter3: path.resolve(root, "chapter3.html"),
+      },
+    },
+  },
 });

@@ -1,0 +1,11 @@
+{
+  "citation": "IMM Face Database (Stegmann et al.); free for education and research with citation. See http://www2.imm.dtu.dk/pubdb/pubs/3160-full.html",
+  "subset": "One neutral frontal per subject (*-1*), 40 faces, 58 landmarks each.",
+  "files": [
+    "01-1m", "02-1m", "03-1m", "04-1m", "05-1m", "06-1m", "07-1m", "08-1f",
+    "09-1m", "10-1m", "11-1m", "12-1f", "13-1m", "14-1f", "15-1f", "16-1m",
+    "17-1m", "18-1m", "19-1m", "20-1m", "21-1m", "22-1f", "23-1m", "24-1m",
+    "25-1m", "26-1m", "27-1m", "28-1m", "29-1m", "30-1f", "31-1m", "32-1m",
+    "33-1m", "34-1m", "35-1f", "36-1m", "37-1m", "38-1m", "39-1m", "40-1m"
+  ]
+}

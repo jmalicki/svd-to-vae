@@ -29,6 +29,8 @@ app.innerHTML = `
     <h1>SVD via gradient descent</h1>
     <p class="repo">
       <a href="https://github.com/jmalicki/svd-grad" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
+      ·
+      <a href="./chapter2.html">Next: squeezing faces through a few numbers</a>
     </p>
     <p class="lede">
       The

@@ -577,3 +577,294 @@ canvas {
   color: var(--muted);
   line-height: 1.4;
 }
+
+.chapter-nav {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.chapter-nav a,
+.chapter-footer a {
+  color: var(--accent);
+  text-underline-offset: 2px;
+}
+
+.chapter-footer {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.95rem;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.9rem 1.1rem 1rem;
+  margin-bottom: 1.1rem;
+}
+
+.panel h2,
+.panel-head h2 {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+}
+
+.panel .hint {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.filmstrip,
+.face-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.filmstrip {
+  max-height: 9.5rem;
+  overflow: auto;
+}
+
+.film-cell {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+  background: #111;
+  line-height: 0;
+}
+
+.film-cell canvas {
+  display: block;
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
+}
+
+.face-gallery.foil .film-cell {
+  opacity: 0.95;
+}
+
+.face-controls {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 0.85rem;
+  max-width: 28rem;
+}
+
+.face-controls label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.face-controls label > input[type="range"] {
+  flex: 1 1 14rem;
+  min-width: 12rem;
+  max-width: 22rem;
+  height: 1.75rem;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.face-controls .val {
+  font-family: var(--mono);
+  font-size: 1.05rem;
+  font-weight: 600;
+  min-width: 2.25rem;
+  text-align: left;
+}
+
+button.primary {
+  appearance: none;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+button.primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button.primary:not(:disabled):hover {
+  filter: brightness(1.05);
+}
+
+.theory code {
+  font-family: var(--mono);
+  font-size: 0.86em;
+}
+
+.compare-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem 1rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.compare-row figure {
+  margin: 0;
+  text-align: center;
+}
+
+.compare-row canvas {
+  display: block;
+  width: 128px;
+  height: 128px;
+  image-rendering: pixelated;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #111;
+}
+
+.compare-row figcaption {
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ink);
+}
+
+.compare-row .cap-sub {
+  display: block;
+  font-weight: 400;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.compare-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  color: var(--muted);
+  min-width: 4.5rem;
+}
+
+.compare-arrow .arrow-label {
+  font-size: 0.75rem;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.compare-arrow .arrow-glyph {
+  font-size: 1.4rem;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.noise-variants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.noise-variants .film-cell canvas {
+  width: 96px;
+  height: 96px;
+}
+
+.demo-callout {
+  margin: 0.75rem 0 0;
+  padding: 0.65rem 0.8rem;
+  background: #f3f7fa;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.subhead {
+  margin: 1.1rem 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.code-bars {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  margin-top: 0.35rem;
+}
+
+.filmstrip.selectable {
+  max-height: none;
+}
+
+button.film-cell.select-cell {
+  padding: 0;
+  border: 2px solid transparent;
+  background: #111;
+  cursor: pointer;
+}
+
+button.film-cell.select-cell.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+button.film-cell.select-cell:hover {
+  border-color: rgba(0, 114, 178, 0.45);
+}
+
+.appendix-list {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.appendix-list li {
+  color: var(--ink);
+  line-height: 1.5;
+  font-size: 0.92rem;
+}
+
+.appendix-list a {
+  color: var(--accent);
+  text-underline-offset: 2px;
+}
+
+.theory.appendix {
+  margin-top: 1.5rem;
+}
+

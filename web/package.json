@@ -15,6 +15,7 @@
     "test:ringing": "npm run gen:ringing"
   },
   "dependencies": {
+    "delaunator": "^5.1.0",
     "js-pytorch": "^0.7.2",
     "ml-matrix": "^6.12.1"
   },

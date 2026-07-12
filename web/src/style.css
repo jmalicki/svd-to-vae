@@ -470,6 +470,61 @@ button:hover {
   max-width: 28rem;
 }
 
+.worked-example,
+.demo-block {
+  margin-bottom: 1.5rem;
+}
+
+.worked-example > h2,
+.demo-block > h2 {
+  margin: 0 0 0.55rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.worked-example > p,
+.demo-block > .demo-intro {
+  margin: 0 0 0.75rem;
+  max-width: 40rem;
+  color: var(--ink);
+  line-height: 1.5;
+  font-size: 0.98rem;
+}
+
+.worked-example .math {
+  margin: 0.5rem 0 0.85rem;
+}
+
+.example-bullets {
+  margin: 0 0 1rem;
+  padding-left: 1.2rem;
+  max-width: 40rem;
+  display: grid;
+  gap: 0.35rem;
+  color: var(--ink);
+  line-height: 1.45;
+  font-size: 0.95rem;
+}
+
+.example-takeaway {
+  margin: 0.9rem 0 0;
+  max-width: 42rem;
+  color: var(--muted);
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+.example-takeaway a {
+  color: var(--accent);
+  text-underline-offset: 2px;
+}
+
+.demo-block .controls {
+  margin-top: 0.75rem;
+}
+
+
 @media (max-width: 860px) {
   .grid-2 {
     grid-template-columns: 1fr;

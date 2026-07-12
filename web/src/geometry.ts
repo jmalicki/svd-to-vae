@@ -25,92 +25,124 @@ app.innerHTML = `
       <a href="https://github.com/jmalicki/svd-to-vae" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
     </p>
     <p class="lede">
-      A $2\\times 2$ matrix $A$ is a linear map of the plane: it takes every vector $x$ to $Ax$.
-      The
-      <a href="https://en.wikipedia.org/wiki/Singular_value_decomposition" target="_blank" rel="noopener noreferrer">singular value decomposition</a>
-      (SVD) writes that map as stretch + rotations:
-      $A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$.
-      Scrub the singular values and angles below — the matrix and the ellipse are built from them.
+      Take every vector of length 1 — their tips form a circle — and multiply each by a
+      $2\\times 2$ matrix $A$. The tips no longer form a circle. They form an
+      <strong>ellipse</strong>. The rest of this page is that one fact, slowly unpacked.
     </p>
   </header>
 
-  <section class="theory" aria-label="SVD geometry">
-    <h2>What you are looking at</h2>
+  <section class="theory" aria-label="Setup">
+    <h2>Before you play</h2>
     <ol class="theory-steps">
       <li>
         <p>
-          Start with the <strong>unit circle</strong>: every vector $x$ with length $1$.
-          Apply $A$. The image $\\{Ax : \\|x\\|=1\\}$ is an <strong>ellipse</strong>
-          (or a line segment if one singular value is zero).
+          <strong>A matrix moves every vector.</strong>
+          For a vector $x$, the product $Ax$ is another vector.
+          Left picture = before. Right picture = after.
         </p>
       </li>
       <li>
         <p>
-          The <strong>singular values</strong> $\\sigma_1 \\ge \\sigma_2 \\ge 0$ are the semi-axis lengths —
-          how far $A$ stretches along its two principal directions. Change them and the ellipse
-          (and the matrix entries) change immediately.
-        </p>
-        <div class="math">
-          $$A = U\\,\\mathrm{diag}(\\sigma_1,\\sigma_2)\\,V^{\\top}$$
-        </div>
-      </li>
-      <li>
-        <p>
-          Angle of $V$ aims the input axes on the circle; angle of $U$ aims the output axes on the
-          ellipse. $U$ and $V$ only rotate; all the stretching lives in $\\sigma$.
+          <strong>Some directions stretch more than others.</strong>
+          The longest and shortest stretches on that ellipse are special numbers called
+          <em>singular values</em> (written $\\sigma_1$ and $\\sigma_2$, “sigma”).
+          Start with one fixed matrix below, then scrub your own.
         </p>
       </li>
     </ol>
   </section>
 
+  <section class="worked-example" aria-label="Worked example">
+    <h2>One concrete example</h2>
+    <p>
+      Here’s a simple matrix: stretch sideways by $2$, squash up–down by $\\tfrac{1}{2}$.
+      Off-diagonal entries are zero, so the axes stay lined up with the coordinate grid.
+    </p>
+    <div class="math">
+      $$A = \\begin{bmatrix} 2 & 0 \\\\ 0 & 0.5 \\end{bmatrix}$$
+    </div>
+    <ul class="example-bullets">
+      <li>Right unit vector $x=(1,0)$ becomes $Ax=(2,0)$ — twice as long.</li>
+      <li>Up unit vector $x=(0,1)$ becomes $Ax=(0,0.5)$ — half as long.</li>
+      <li>Do that for every direction on the circle → the ellipse on the right.</li>
+    </ul>
+    <div class="grid-2 ellipse-pair">
+      <div class="panel">
+        <h2>Before: unit circle</h2>
+        <canvas id="exIn" width="360" height="360" aria-label="Example unit circle"></canvas>
+        <p class="hint">Orange arrow $(1,0)$. Blue arrow $(0,1)$.</p>
+      </div>
+      <div class="panel">
+        <h2>After: multiply by $A$</h2>
+        <canvas id="exOut" width="360" height="360" aria-label="Example ellipse"></canvas>
+        <p class="hint">Same arrows after $A$: lengths $2$ and $0.5$. Those lengths are $\\sigma_1$ and $\\sigma_2$.</p>
+      </div>
+    </div>
+    <p class="example-takeaway">
+      So for this $A$, the singular values are just $\\sigma_1=2$ and $\\sigma_2=0.5$ —
+      the ellipse’s long and short axis lengths. The
+      <a href="https://en.wikipedia.org/wiki/Singular_value_decomposition" target="_blank" rel="noopener noreferrer">singular value decomposition</a>
+      (SVD) finds those stretches (and two rotations) for <em>any</em> $2\\times 2$ matrix,
+      even when the ellipse is tilted.
+    </p>
+  </section>
+
+  <section class="demo-block" aria-label="Interactive demo">
+    <h2>Try it yourself</h2>
+    <p class="demo-intro">
+      Change the two stretch amounts and two twist angles.
+      The matrix $A$ is rebuilt as rotate → stretch → rotate again.
+      Watch the heatmap and the ellipse update together.
+    </p>
+
   <div class="controls">
     <div class="control-row">
       <label class="slider">
-        <span class="slider-label">$\\sigma_1$ (major) <strong id="s1Val">2.20</strong></span>
+        <span class="slider-label">Long stretch $\\sigma_1$ <strong id="s1Val">2.20</strong></span>
         <input id="s1" type="range" min="0" max="3" step="0.05" value="2.2" />
       </label>
-      <p class="help">Longer ellipse axis. Larger $\\sigma_1$ stretches harder along $u_1$.</p>
+      <p class="help">How far the ellipse reaches along its long axis.</p>
     </div>
     <div class="control-row">
       <label class="slider">
-        <span class="slider-label">$\\sigma_2$ (minor) <strong id="s2Val">0.80</strong></span>
+        <span class="slider-label">Short stretch $\\sigma_2$ <strong id="s2Val">0.80</strong></span>
         <input id="s2" type="range" min="0" max="3" step="0.05" value="0.8" />
       </label>
-      <p class="help">Shorter axis. Set to $0$ to collapse the ellipse to a line (rank-$1$ matrix).</p>
+      <p class="help">How far along the short axis. Zero → flat line (the matrix “loses a dimension”).</p>
     </div>
     <div class="control-row">
       <label class="slider">
-        <span class="slider-label">$V$ angle <strong id="thVVal">25°</strong></span>
+        <span class="slider-label">Input twist ($V$) <strong id="thVVal">25°</strong></span>
         <input id="thV" type="range" min="-90" max="90" step="1" value="25" />
       </label>
-      <p class="help">Rotates the input directions $v_1,v_2$ on the unit circle.</p>
+      <p class="help">Which directions on the circle get the long vs short stretch.</p>
     </div>
     <div class="control-row">
       <label class="slider">
-        <span class="slider-label">$U$ angle <strong id="thUVal">40°</strong></span>
+        <span class="slider-label">Output twist ($U$) <strong id="thUVal">40°</strong></span>
         <input id="thU" type="range" min="-90" max="90" step="1" value="40" />
       </label>
-      <p class="help">Rotates the output axes of the ellipse (columns of $U$).</p>
+      <p class="help">Which way the stretched ellipse points in the plane.</p>
     </div>
     <div class="control-actions">
       <div class="btns">
         <button type="button" data-preset="stretch">Stretch</button>
-        <button type="button" data-preset="circle" class="secondary">Isotropic</button>
-        <button type="button" data-preset="flat" class="secondary">Rank-1</button>
+        <button type="button" data-preset="circle" class="secondary">Same stretches</button>
+        <button type="button" data-preset="flat" class="secondary">Flatten</button>
         <button type="button" data-preset="tilt" class="secondary">Tilted</button>
       </div>
-      <p class="help">Presets set $\\sigma$ and the two angles; drag any slider to explore further.</p>
+      <p class="help">Try a preset, then drag. Watch the matrix numbers change as you move $\\sigma$ and the angles.</p>
     </div>
   </div>
 
   <div class="shared">
     <div class="panel">
-      <h2>Matrix $A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$</h2>
+      <h2>The matrix $A$ (built from the pieces above)</h2>
       <canvas id="Aheat" width="160" height="160" aria-label="Heatmap of matrix A"></canvas>
       <p class="formula" id="matrixReadout" aria-live="polite"></p>
     </div>
     <div class="panel sigma-bars-panel">
-      <h2>Singular values</h2>
+      <h2>Stretch amounts $\\sigma_1$, $\\sigma_2$</h2>
       <canvas id="sigmaBars" width="200" height="120" aria-label="Bar chart of singular values"></canvas>
       <p class="status" id="sigmaReadout" aria-live="polite"></p>
     </div>
@@ -118,40 +150,48 @@ app.innerHTML = `
 
   <div class="grid-2 ellipse-pair">
     <div class="panel">
-      <h2>Unit circle · input ($V$)</h2>
+      <h2>Before: unit circle</h2>
       <canvas id="inPlane" width="360" height="360" aria-label="Unit circle with right singular vectors"></canvas>
       <p class="hint">
-        Orange / blue arrows: columns of $V$. The moving dot is a unit vector $x$;
-        watch where $Ax$ lands on the right.
+        Orange and blue arrows are the two special input directions ($v_1$, $v_2$).
+        The moving dot is one vector $x$ riding around the circle.
       </p>
     </div>
     <div class="panel">
-      <h2>Image under $A$ · ellipse ($U$, $\\sigma$)</h2>
+      <h2>After: multiply by $A$</h2>
       <canvas id="outPlane" width="360" height="360" aria-label="Ellipse with left singular vectors scaled by sigma"></canvas>
       <p class="hint">
-        Axis lengths are exactly $\\sigma_1$ and $\\sigma_2$. Arrows are $\\sigma_j u_j = A v_j$.
+        Same vectors after $A$. Axis lengths are $\\sigma_1$ and $\\sigma_2$.
+        The moving dot is $Ax$ — where that input landed.
       </p>
     </div>
   </div>
+  </section>
 
   <section class="appendix" id="appendix" aria-label="Appendix">
-    <h2>Appendix: reading the factors</h2>
-    <h3>Right singular vectors $V$</h3>
-    <p>
-      Orthonormal columns $v_1, v_2$ on the input side. They pick the two special directions
-      on the unit circle that map to the ellipse axes. Here a single angle builds
-      $V = \\begin{bmatrix}\\cos\\theta_V & -\\sin\\theta_V\\\\ \\sin\\theta_V & \\cos\\theta_V\\end{bmatrix}$.
-    </p>
+    <h2>Appendix: names for the pieces</h2>
     <h3>Singular values $\\sigma$</h3>
     <p>
-      Nonnegative stretch factors. If $\\sigma_2 = 0$, the ellipse collapses to a line segment and
-      $A$ has rank at most $1$. If $\\sigma_1 = \\sigma_2$, every direction stretches the same —
-      the “ellipse” is a circle (possibly rotated by $U$ relative to $V$).
+      Just the two stretch lengths, with $\\sigma_1 \\ge \\sigma_2 \\ge 0$ by convention.
+      If $\\sigma_2 = 0$, every output lies on a line — people say the matrix has
+      <em>rank 1</em>. If $\\sigma_1 = \\sigma_2$, every direction stretches the same, so you get a circle.
     </p>
-    <h3>Left singular vectors $U$</h3>
+    <h3>Matrices $U$ and $V$</h3>
     <p>
-      Orthonormal columns $u_1, u_2$ on the output side. Together: $A v_j = \\sigma_j u_j$.
-      Multiplying $U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$ rebuilds every entry of $A$.
+      Each is a pure rotation (built from one angle). Columns of $V$ are the special input
+      directions; columns of $U$ are the matching output directions.
+      The stretch turns $v_j$ into $\\sigma_j u_j$: same idea as “that arrow got longer by $\\sigma_j$.”
+    </p>
+    <h3>Putting $A$ back together</h3>
+    <p>
+      Multiply rotate → stretch → rotate and you recover every entry of $A$:
+    </p>
+    <div class="math">
+      $$A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$$
+    </div>
+    <p>
+      That factorization is the SVD. Next page: keep only the biggest stretches and throw the
+      small ones away.
     </p>
   </section>
 `;
@@ -178,6 +218,8 @@ const el = {
   sigmaReadout: app.querySelector<HTMLElement>("#sigmaReadout")!,
   Aheat: app.querySelector<HTMLCanvasElement>("#Aheat")!,
   sigmaBars: app.querySelector<HTMLCanvasElement>("#sigmaBars")!,
+  exIn: app.querySelector<HTMLCanvasElement>("#exIn")!,
+  exOut: app.querySelector<HTMLCanvasElement>("#exOut")!,
   inPlane: app.querySelector<HTMLCanvasElement>("#inPlane")!,
   outPlane: app.querySelector<HTMLCanvasElement>("#outPlane")!,
 };
@@ -370,34 +412,60 @@ function drawCircleOrEllipse(
   ctx.stroke();
 }
 
+function paintCanvas(
+  canvas: HTMLCanvasElement,
+  worldR: number,
+  drawContent: (ctx: CanvasRenderingContext2D, cx: number, cy: number, scale: number) => void,
+): void {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const css = canvas.clientWidth || 360;
+  canvas.width = Math.round(css * dpr);
+  canvas.height = Math.round(css * dpr);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const w = css;
+  ctx.clearRect(0, 0, w, w);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, w, w);
+  const cx = w / 2;
+  const cy = w / 2;
+  const scale = (0.42 * w) / worldR;
+  drawAxes(ctx, cx, cy, scale, worldR);
+  drawContent(ctx, cx, cy, scale);
+}
+
+const EXAMPLE_A = fromNested([
+  [2, 0],
+  [0, 0.5],
+]);
+const EXAMPLE_OUT_SCALE = 2.6;
+
+function paintExample(): void {
+  paintCanvas(el.exIn, 1.35, (ctx, cx, cy, scale) => {
+    drawCircleOrEllipse(ctx, cx, cy, scale, (t) => [Math.cos(t), Math.sin(t)], INK);
+    drawArrow(ctx, cx, cy, scale, 1, 0, ACCENT2, "(1, 0)");
+    drawArrow(ctx, cx, cy, scale, 0, 1, ACCENT, "(0, 1)");
+  });
+  paintCanvas(el.exOut, EXAMPLE_OUT_SCALE, (ctx, cx, cy, scale) => {
+    drawCircleOrEllipse(
+      ctx,
+      cx,
+      cy,
+      scale,
+      (t) => applyA(EXAMPLE_A, Math.cos(t), Math.sin(t)),
+      INK,
+    );
+    drawArrow(ctx, cx, cy, scale, 2, 0, ACCENT2, "(2, 0)");
+    drawArrow(ctx, cx, cy, scale, 0, 0.5, ACCENT, "(0, 0.5)");
+  });
+}
+
 function paintPlanes(probeAngle: number): void {
   const f = frame ?? rebuildFrame();
   const { A, U, V, sigma, outScale } = f;
 
-  const paint = (
-    canvas: HTMLCanvasElement,
-    worldR: number,
-    drawContent: (ctx: CanvasRenderingContext2D, cx: number, cy: number, scale: number) => void,
-  ) => {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const css = canvas.clientWidth || 360;
-    canvas.width = Math.round(css * dpr);
-    canvas.height = Math.round(css * dpr);
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const w = css;
-    ctx.clearRect(0, 0, w, w);
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, w, w);
-    const cx = w / 2;
-    const cy = w / 2;
-    const scale = (0.42 * w) / worldR;
-    drawAxes(ctx, cx, cy, scale, worldR);
-    drawContent(ctx, cx, cy, scale);
-  };
-
-  paint(el.inPlane, 1.35, (ctx, cx, cy, scale) => {
+  paintCanvas(el.inPlane, 1.35, (ctx, cx, cy, scale) => {
     drawCircleOrEllipse(ctx, cx, cy, scale, (t) => [Math.cos(t), Math.sin(t)], INK);
     drawArrow(ctx, cx, cy, scale, get(V, 0, 0), get(V, 1, 0), ACCENT2, "v₁");
     drawArrow(ctx, cx, cy, scale, get(V, 0, 1), get(V, 1, 1), ACCENT, "v₂");
@@ -413,7 +481,7 @@ function paintPlanes(probeAngle: number): void {
     ctx.fillText("x", qx + 8, qy - 8);
   });
 
-  paint(el.outPlane, outScale, (ctx, cx, cy, scale) => {
+  paintCanvas(el.outPlane, outScale, (ctx, cx, cy, scale) => {
     drawCircleOrEllipse(
       ctx,
       cx,
@@ -476,6 +544,7 @@ app.querySelectorAll<HTMLButtonElement>("[data-preset]").forEach((btn) => {
 });
 
 redrawStatic();
+paintExample();
 
 let probe = 0.4;
 function tick(): void {
@@ -485,4 +554,7 @@ function tick(): void {
 }
 requestAnimationFrame(tick);
 
-window.addEventListener("resize", () => paintPlanes(probe));
+window.addEventListener("resize", () => {
+  paintExample();
+  paintPlanes(probe);
+});

@@ -10,6 +10,7 @@ import {
   type EllipseFrame,
 } from "./svdGeometry2d";
 import { fromNested, get, type Matrix } from "./matrix";
+import { prepareHiDpiCanvas } from "./hiDpiCanvas";
 
 declare global {
   interface Window {
@@ -481,14 +482,9 @@ function paintCanvas(
   worldR: number,
   drawContent: (ctx: CanvasRenderingContext2D, cx: number, cy: number, scale: number) => void,
 ): void {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const css = canvas.clientWidth || canvas.width || 200;
-  canvas.width = Math.round(css * dpr);
-  canvas.height = Math.round(css * dpr);
-  const ctx = canvas.getContext("2d");
+  const { cssW, ctx } = prepareHiDpiCanvas(canvas);
   if (!ctx) return;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const w = css;
+  const w = cssW;
   ctx.clearRect(0, 0, w, w);
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, w, w);

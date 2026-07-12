@@ -11,6 +11,35 @@ import {
   type Matrix,
 } from "./matrix";
 
+/**
+ * Unit normal perpendicular to a mirror line at `lineAngleDeg` (degrees from +x).
+ * Same convention as the mirror-angle sliders on the Factors chapter.
+ */
+export function normalFromLineAngle(lineAngleDeg: number): [number, number] {
+  const nAng = ((lineAngleDeg + 90) * Math.PI) / 180;
+  return [Math.cos(nAng), Math.sin(nAng)];
+}
+
+/** Split x into mirror-parallel and normal pieces for unit (or unnormalized) n. */
+export function decomposeAlongNormal(
+  x: number,
+  y: number,
+  nx: number,
+  ny: number,
+): {
+  dot: number;
+  parallel: [number, number];
+  normal: [number, number];
+} {
+  const nlen = Math.hypot(nx, ny) || 1;
+  const ux = nx / nlen;
+  const uy = ny / nlen;
+  const dot = x * ux + y * uy;
+  const normal: [number, number] = [dot * ux, dot * uy];
+  const parallel: [number, number] = [x - normal[0], y - normal[1]];
+  return { dot, parallel, normal };
+}
+
 /** Unit normal (nx, ny) → Householder matrix H = I − 2 n nᵀ. */
 export function householderFromNormal(nx: number, ny: number): Matrix {
   const n = Math.hypot(nx, ny) || 1;

@@ -4,9 +4,11 @@ import {
   applyMat2,
   applyRight,
   columnOf,
+  decomposeAlongNormal,
   householderAimColumn,
   householderAimToE1,
   householderFromNormal,
+  normalFromLineAngle,
   reflectAcrossNormal,
   rightGivensZeroSuperdiag,
 } from "./householder2d";
@@ -33,6 +35,55 @@ describe("householderFromNormal", () => {
     const [mx, my] = applyMat2(H, 1.2, -0.4);
     expect(mx).toBeCloseTo(rx, 10);
     expect(my).toBeCloseTo(ry, 10);
+  });
+});
+
+describe("normalFromLineAngle (mirror slider)", () => {
+  it("is always unit length across the slider range", () => {
+    for (let ang = -90; ang <= 90; ang += 1) {
+      const [nx, ny] = normalFromLineAngle(ang);
+      expect(Math.hypot(nx, ny)).toBeCloseTo(1, 12);
+    }
+  });
+
+  it("is orthogonal to the mirror direction", () => {
+    for (const ang of [-90, -45, 0, 35, 45, 90]) {
+      const th = (ang * Math.PI) / 180;
+      const [nx, ny] = normalFromLineAngle(ang);
+      expect(nx * Math.cos(th) + ny * Math.sin(th)).toBeCloseTo(0, 12);
+    }
+  });
+
+  it("builds H that reflects the probe for every mirror angle", () => {
+    const probe: [number, number] = [1.1, 0.55];
+    for (let ang = -90; ang <= 90; ang += 5) {
+      const [nx, ny] = normalFromLineAngle(ang);
+      const H = householderFromNormal(nx, ny);
+      const [hx, hy] = applyMat2(H, probe[0], probe[1]);
+      const [rx, ry] = reflectAcrossNormal(probe[0], probe[1], nx, ny);
+      expect(hx).toBeCloseTo(rx, 10);
+      expect(hy).toBeCloseTo(ry, 10);
+      expect(Math.hypot(hx, hy)).toBeCloseTo(Math.hypot(probe[0], probe[1]), 10);
+
+      const { parallel, normal } = decomposeAlongNormal(
+        probe[0],
+        probe[1],
+        nx,
+        ny,
+      );
+      expect(hx).toBeCloseTo(parallel[0] - normal[0], 10);
+      expect(hy).toBeCloseTo(parallel[1] - normal[1], 10);
+      expect(hx).toBeCloseTo(probe[0] - 2 * normal[0], 10);
+      expect(hy).toBeCloseTo(probe[1] - 2 * normal[1], 10);
+    }
+  });
+});
+
+describe("decomposeAlongNormal", () => {
+  it("reconstructs x = parallel + normal", () => {
+    const { parallel, normal } = decomposeAlongNormal(1.1, 0.55, -0.5, 0.8);
+    expect(parallel[0] + normal[0]).toBeCloseTo(1.1, 12);
+    expect(parallel[1] + normal[1]).toBeCloseTo(0.55, 12);
   });
 });
 

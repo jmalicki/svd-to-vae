@@ -6,13 +6,16 @@ import {
   applyMat2,
   applyRight,
   columnOf,
+  decomposeAlongNormal,
   demoMatrix2,
   householderAimColumn,
   householderAimToE1,
   householderFromNormal,
+  normalFromLineAngle,
   reflectAcrossNormal,
   rightGivensZeroSuperdiag,
 } from "./householder2d";
+import { prepareHiDpiCanvas } from "./hiDpiCanvas";
 import { frameFromMatrix } from "./svdGeometry2d";
 import {
   type Matrix,
@@ -702,14 +705,9 @@ function paintCanvas(
   worldR: number,
   drawContent: (ctx: CanvasRenderingContext2D, cx: number, cy: number, scale: number) => void,
 ): void {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const css = canvas.clientWidth || canvas.width || 200;
-  canvas.width = Math.round(css * dpr);
-  canvas.height = Math.round(css * dpr);
-  const ctx = canvas.getContext("2d");
+  const { cssW, ctx } = prepareHiDpiCanvas(canvas);
   if (!ctx) return;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const w = css;
+  const w = cssW;
   ctx.clearRect(0, 0, w, w);
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, w, w);
@@ -725,14 +723,8 @@ function drawStem(
   values: number[],
   color: string,
 ): void {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const cssW = canvas.clientWidth || canvas.width || 220;
-  const cssH = canvas.clientHeight || canvas.height || 160;
-  canvas.width = Math.round(cssW * dpr);
-  canvas.height = Math.round(cssH * dpr);
-  const ctx = canvas.getContext("2d");
+  const { cssW, cssH, ctx } = prepareHiDpiCanvas(canvas);
   if (!ctx) return;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, cssW, cssH);
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, cssW, cssH);
@@ -775,11 +767,6 @@ function drawStem(
   }
 }
 
-function normalFromLineAngle(lineAngleDeg: number): [number, number] {
-  const nAng = ((lineAngleDeg + 90) * Math.PI) / 180;
-  return [Math.cos(nAng), Math.sin(nAng)];
-}
-
 function fmt(x: number, d = 2): string {
   return x.toFixed(d);
 }
@@ -802,11 +789,9 @@ function paintBuild(): void {
   const H = householderFromNormal(nx, ny);
   const [x0, y0] = BUILD_PROBE;
   const [hx, hy] = applyMat2(H, x0, y0);
-  const dot = nx * x0 + ny * y0;
-  const xn = dot * nx;
-  const yn = dot * ny;
-  const xp = x0 - xn;
-  const yp = y0 - yn;
+  const { dot, parallel, normal } = decomposeAlongNormal(x0, y0, nx, ny);
+  const [xp, yp] = parallel;
+  const [xn, yn] = normal;
 
   el.buildFormula.textContent =
     `n ≈ (${fmt(nx, 3)}, ${fmt(ny, 3)}) · ` +

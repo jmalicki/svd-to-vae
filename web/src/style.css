@@ -93,6 +93,120 @@ header a {
   margin-bottom: 1.1rem;
 }
 
+.build-layout {
+  display: grid;
+  grid-template-columns: minmax(200px, 240px) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+  margin-top: 0.85rem;
+}
+
+.build-rail {
+  position: sticky;
+  top: 0.85rem;
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.85rem 0.9rem;
+  background: #f7f7f7;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  z-index: 2;
+}
+
+.build-rail-title {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.build-rail .slider {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.build-dial {
+  display: grid;
+  gap: 0.35rem;
+  justify-items: start;
+}
+
+.build-dial canvas {
+  width: 120px;
+  height: 120px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  cursor: grab;
+  touch-action: none;
+}
+
+.build-dial canvas:active {
+  cursor: grabbing;
+}
+
+.build-dial .help {
+  margin: 0;
+  max-width: 12rem;
+}
+
+.build-rail .slider-label {
+  font-size: 0.82rem;
+  color: var(--ink);
+}
+
+.build-rail .slider-label strong {
+  font-family: var(--mono);
+  font-weight: 600;
+}
+
+.build-rail input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.build-rail .help {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.build-rail .formula {
+  margin: 0;
+  white-space: pre-line;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  padding: 0.55rem 0.65rem;
+  overflow-x: auto;
+}
+
+.build-main {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.build-main .panel canvas {
+  width: min(100%, 360px);
+  height: auto;
+  display: block;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+@media (max-width: 820px) {
+  .build-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .build-rail {
+    position: static;
+  }
+}
+
 .theory h2 {
   margin: 0 0 0.65rem;
   font-size: 0.8rem;

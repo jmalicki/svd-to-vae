@@ -1,6 +1,7 @@
 import "./style.css";
 import { chapterNav } from "./chapterNav";
 import { classicalSvd, type SvdResult } from "./classicalSvd";
+import { mountAngleDial } from "./angleDial";
 import {
   applyLeft,
   applyMat2,
@@ -63,7 +64,7 @@ app.innerHTML = `
     </p>
   </header>
 
-  <section class="theory" aria-label="Build a reflection">
+  <section class="theory build-section" aria-label="Build a reflection">
     <h2>Building a reflection</h2>
     <p>
       Chapter 1 used rotations: multiply by an orthogonal matrix with determinant $+1$,
@@ -74,86 +75,99 @@ app.innerHTML = `
     </p>
     <p>
       A mirror through the origin is completely described by a unit vector $n$ at right
-      angles to it (the <strong>normal</strong>). Turn the slider below: the orange line is
-      the mirror, the green arrow is $n$, and the three panels stay linked. The rest of this
-      section builds the formula for reflecting a vector $x$ across that mirror.
+      angles to it (the <strong>normal</strong>). The sidebar keeps the mirror and a probe
+      vector $x$ in reach while you scroll the construction; every figure uses the same
+      choices.
     </p>
-    <div class="controls">
-      <div class="control-row">
+
+    <div class="build-layout">
+      <aside class="build-rail" aria-label="Mirror and probe controls">
+        <p class="build-rail-title">Controls</p>
+        <div class="build-dial">
+          <span class="slider-label">Mirror <strong id="buildAngVal">35°</strong></span>
+          <canvas id="buildMirrorDial" width="120" height="120" aria-label="Mirror angle dial"></canvas>
+          <p class="help">Drag around the circle — wraps every 180° (a line has no arrow).</p>
+        </div>
+        <div class="build-dial">
+          <span class="slider-label">Probe $x$ <strong id="buildProbeAngVal">27°</strong></span>
+          <canvas id="buildProbeDial" width="120" height="120" aria-label="Probe angle dial"></canvas>
+          <p class="help">Drag the arrow — wraps a full turn.</p>
+        </div>
         <label class="slider">
-          <span class="slider-label">Mirror angle (sets $n$) <strong id="buildAngVal">35°</strong></span>
-          <input id="buildAng" type="range" min="-90" max="90" step="1" value="35" />
+          <span class="slider-label">Probe length <strong id="buildProbeLenVal">1.23</strong></span>
+          <input id="buildProbeLen" type="range" min="0.4" max="2.0" step="0.01" value="1.23" />
         </label>
-        <p class="help">Same $n$ for all three figures.</p>
-      </div>
-    </div>
-    <p class="formula" id="buildFormula" aria-live="polite"></p>
+        <p class="formula" id="buildFormula" aria-live="polite"></p>
+      </aside>
 
-    <div class="panel">
-      <h2>1 · The mirror and its normal</h2>
-      <p>
-        Orange is the mirror; green is a unit normal $n$ (so $\\|n\\| = 1$ and $n$ is
-        perpendicular to the mirror). You only need one of these: the line determines $n$
-        up to sign, and $n$ determines the line. Replacing $n$ by $-n$ describes the same
-        reflection.
-      </p>
-      <canvas id="build1" width="300" height="300" aria-label="Mirror and normal"></canvas>
-      <p class="hint">Orange = mirror. Green = $n$. Gray = coordinate axes.</p>
-    </div>
+      <div class="build-main">
+        <div class="panel">
+          <h2>1 · The mirror and its normal</h2>
+          <p>
+            Orange is the mirror; green is a unit normal $n$ (so $\\|n\\| = 1$ and $n$ is
+            perpendicular to the mirror). You only need one of these: the line determines $n$
+            up to sign, and $n$ determines the line. Replacing $n$ by $-n$ describes the same
+            reflection.
+          </p>
+          <canvas id="build1" width="300" height="300" aria-label="Mirror and normal"></canvas>
+          <p class="hint">Orange = mirror. Green = $n$. Gray = coordinate axes.</p>
+        </div>
 
-    <div class="panel">
-      <h2>2 · Decompose $x$ along $n$</h2>
-      <p>
-        Fix a probe vector $x$ (blue). Project it onto the normal direction: the scalar
-        $n^{\\top}x$ is how far $x$ sits on the $n$-side of the mirror, and the vector
-      </p>
-      <div class="math">
-        $$x_{n} = (n^{\\top}x)\\,n$$
-      </div>
-      <p>
-        is that piece of $x$ (green in the figure). What remains,
-        $x_{\\parallel} = x - x_{n}$, lies in the mirror (purple). So
-        $x = x_{\\parallel} + x_{n}$ — the usual split into a part along $n$ and a part
-        orthogonal to $n$.
-      </p>
-      <canvas id="build2" width="300" height="300" aria-label="Decompose x"></canvas>
-      <p class="hint">Blue = $x$. Purple = $x_{\\parallel}$. Green = $x_n = (n^{\\top}x)\\,n$.</p>
-    </div>
+        <div class="panel">
+          <h2>2 · Decompose $x$ along $n$</h2>
+          <p>
+            Fix a probe vector $x$ (blue). Project it onto the normal direction: the scalar
+            $n^{\\top}x$ is how far $x$ sits on the $n$-side of the mirror, and the vector
+          </p>
+          <div class="math">
+            $$x_{n} = (n^{\\top}x)\\,n$$
+          </div>
+          <p>
+            is that piece of $x$ (green in the figure). What remains,
+            $x_{\\parallel} = x - x_{n}$, lies in the mirror (purple). So
+            $x = x_{\\parallel} + x_{n}$ — the usual split into a part along $n$ and a part
+            orthogonal to $n$.
+          </p>
+          <canvas id="build2" width="300" height="300" aria-label="Decompose x"></canvas>
+          <p class="hint">Blue = $x$. Purple = $x_{\\parallel}$. Green = $x_n = (n^{\\top}x)\\,n$.</p>
+        </div>
 
-    <div class="panel">
-      <h2>3 · Flip the normal piece</h2>
-      <p>
-        To reflect, keep the part in the mirror and reverse the part along $n$:
-        $Hx = x_{\\parallel} - x_{n}$. Since $x_{\\parallel} = x - x_{n}$, that is the same as
-        subtracting the normal piece twice:
-      </p>
-      <div class="math">
-        $$Hx = x - 2(n^{\\top}x)\\,n.$$
-      </div>
-      <p>
-        In the figure, orange is $Hx$. The dashed segment is the jump across the mirror;
-        $x$ and $Hx$ are the same distance from it, on opposite sides. In particular
-        $\\|Hx\\| = \\|x\\|$.
-      </p>
-      <canvas id="build3" width="300" height="300" aria-label="Reflect x to Hx"></canvas>
-      <p class="hint">Blue = $x$. Orange = $Hx$. Dashed = the flip across the mirror.</p>
-    </div>
+        <div class="panel">
+          <h2>3 · Flip the normal piece</h2>
+          <p>
+            To reflect, keep the part in the mirror and reverse the part along $n$:
+            $Hx = x_{\\parallel} - x_{n}$. Since $x_{\\parallel} = x - x_{n}$, that is the same as
+            subtracting the normal piece twice:
+          </p>
+          <div class="math">
+            $$Hx = x - 2(n^{\\top}x)\\,n.$$
+          </div>
+          <p>
+            In the figure, orange is $Hx$. The dashed segment is the jump across the mirror;
+            $x$ and $Hx$ are the same distance from it, on opposite sides. In particular
+            $\\|Hx\\| = \\|x\\|$.
+          </p>
+          <canvas id="build3" width="300" height="300" aria-label="Reflect x to Hx"></canvas>
+          <p class="hint">Blue = $x$. Orange = $Hx$. Dashed = the flip across the mirror.</p>
+        </div>
 
-    <div class="panel">
-      <h2>4 · Write it as a matrix</h2>
-      <p>
-        The rule $x \\mapsto x - 2(n^{\\top}x)\\,n$ is linear in $x$. Factoring out $x$ gives
-        the Householder matrix
-      </p>
-      <div class="math">
-        $$H = I - 2nn^{\\top}.$$
+        <div class="panel">
+          <h2>4 · Write it as a matrix</h2>
+          <p>
+            The rule $x \\mapsto x - 2(n^{\\top}x)\\,n$ is linear in $x$. Factoring out $x$ gives
+            the Householder matrix
+          </p>
+          <div class="math">
+            $$H = I - 2nn^{\\top}.$$
+          </div>
+          <p>
+            Reflecting twice undoes itself, so $H^{2} = I$. Lengths (and angles, up to
+            orientation) are preserved, so $H$ is orthogonal: $H^{\\top}H = I$. The orientation
+            flip is $\\det H = -1$, whereas chapter 1’s rotations had $\\det = +1$. From here on,
+            “apply a reflection” means multiply by a matrix of this form.
+          </p>
+        </div>
       </div>
-      <p>
-        Reflecting twice undoes itself, so $H^{2} = I$. Lengths (and angles, up to
-        orientation) are preserved, so $H$ is orthogonal: $H^{\\top}H = I$. The orientation
-        flip is $\\det H = -1$, whereas chapter 1’s rotations had $\\det = +1$. From here on,
-        “apply a reflection” means multiply by a matrix of this form.
-      </p>
     </div>
   </section>
 
@@ -487,8 +501,12 @@ const el = {
   mirBanner: app.querySelector<HTMLElement>("#mirBanner")!,
   mirHint: app.querySelector<HTMLElement>("#mirHint")!,
   mirPanel: app.querySelector<HTMLElement>("#mirPanel")!,
-  buildAng: app.querySelector<HTMLInputElement>("#buildAng")!,
   buildAngVal: app.querySelector<HTMLElement>("#buildAngVal")!,
+  buildProbeAngVal: app.querySelector<HTMLElement>("#buildProbeAngVal")!,
+  buildProbeLen: app.querySelector<HTMLInputElement>("#buildProbeLen")!,
+  buildProbeLenVal: app.querySelector<HTMLElement>("#buildProbeLenVal")!,
+  buildMirrorDial: app.querySelector<HTMLCanvasElement>("#buildMirrorDial")!,
+  buildProbeDial: app.querySelector<HTMLCanvasElement>("#buildProbeDial")!,
   build1: app.querySelector<HTMLCanvasElement>("#build1")!,
   build2: app.querySelector<HTMLCanvasElement>("#build2")!,
   build3: app.querySelector<HTMLCanvasElement>("#build3")!,
@@ -785,29 +803,41 @@ function clamp(x: number, lo: number, hi: number): number {
 
 /* ── Build reflection operator ─────────────────────────────────────────── */
 
-const BUILD_PROBE: [number, number] = [1.1, 0.55];
 const NORMAL_COLOR = "#009E73";
-
 const DECOMP_COLOR = "#7B2D8E";
 
+let mirrorDial: ReturnType<typeof mountAngleDial>;
+let probeDial: ReturnType<typeof mountAngleDial>;
+
+function buildProbe(): [number, number] {
+  const ang = (probeDial.get() * Math.PI) / 180;
+  const len = Number(el.buildProbeLen.value);
+  return [len * Math.cos(ang), len * Math.sin(ang)];
+}
+
 function paintBuild(): void {
-  const ang = Number(el.buildAng.value);
-  el.buildAngVal.textContent = `${ang}°`;
+  const ang = mirrorDial.get();
+  el.buildAngVal.textContent = `${Math.round(ang)}°`;
+  const probeAng = probeDial.get();
+  const probeLen = Number(el.buildProbeLen.value);
+  el.buildProbeAngVal.textContent = `${Math.round(probeAng)}°`;
+  el.buildProbeLenVal.textContent = fmt(probeLen);
+
   const [nx, ny] = normalFromLineAngle(ang);
   const H = householderFromNormal(nx, ny);
-  const [x0, y0] = BUILD_PROBE;
+  const [x0, y0] = buildProbe();
   const [hx, hy] = applyMat2(H, x0, y0);
   const { dot, parallel, normal } = decomposeAlongNormal(x0, y0, nx, ny);
   const [xp, yp] = parallel;
   const [xn, yn] = normal;
 
   el.buildFormula.textContent =
-    `n ≈ ${fmtPair(nx, ny)} · ` +
-    `nᵀx ≈ ${fmtSigned(dot)} · ` +
-    `xₙ ≈ ${fmtPair(xn, yn)} · ` +
+    `n ≈ ${fmtPair(nx, ny)}\n` +
+    `nᵀx ≈ ${fmtSigned(dot)}\n` +
+    `xₙ ≈ ${fmtPair(xn, yn)}\n` +
     `Hx ≈ ${fmtPair(hx, hy)}`;
 
-  const extent = 1.6;
+  const extent = Math.max(1.6, probeLen * 1.2, Math.hypot(hx, hy) * 1.15);
 
   paintCanvas(el.build1, extent, (ctx, cx, cy, scale) => {
     drawMirrorLine(ctx, cx, cy, scale, ang, extent);
@@ -817,7 +847,6 @@ function paintBuild(): void {
   paintCanvas(el.build2, extent, (ctx, cx, cy, scale) => {
     drawMirrorLine(ctx, cx, cy, scale, ang, extent);
     drawArrow(ctx, cx, cy, scale, xp, yp, DECOMP_COLOR, "x∥");
-    // normal piece from tip of parallel to tip of x
     const [p0x, p0y] = toCanvas(cx, cy, scale, xp, yp);
     const [p1x, p1y] = toCanvas(cx, cy, scale, x0, y0);
     ctx.strokeStyle = NORMAL_COLOR;
@@ -850,7 +879,6 @@ function paintBuild(): void {
     ctx.lineTo(b0, b1);
     ctx.stroke();
     ctx.setLineDash([]);
-    // midpoint on mirror (foot)
     const [fx, fy] = toCanvas(cx, cy, scale, xp, yp);
     ctx.fillStyle = MUTED;
     ctx.beginPath();
@@ -1310,6 +1338,21 @@ function paintSvd(): void {
 
 /* ── Master paint + listeners ──────────────────────────────────────────── */
 
+mirrorDial = mountAngleDial(el.buildMirrorDial, {
+  kind: "line",
+  periodDeg: 180,
+  valueDeg: 35,
+  color: MIRROR,
+  onChange: () => paintBuild(),
+});
+probeDial = mountAngleDial(el.buildProbeDial, {
+  kind: "ray",
+  periodDeg: 360,
+  valueDeg: 27,
+  color: ACCENT,
+  onChange: () => paintBuild(),
+});
+
 function paintAll(): void {
   paintBuild();
   paintMirror();
@@ -1320,7 +1363,7 @@ function paintAll(): void {
   paintSvd();
 }
 
-el.buildAng.addEventListener("input", paintBuild);
+el.buildProbeLen.addEventListener("input", paintBuild);
 el.mirAng.addEventListener("input", paintMirror);
 
 el.aimChallenge.addEventListener("click", newAimChallenge);

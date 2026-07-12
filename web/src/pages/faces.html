@@ -9,10 +9,12 @@
       <a href="./truncate.html">previous page</a>,
       a
       <a href="https://en.wikipedia.org/wiki/Low-rank_approximation" target="_blank" rel="noopener noreferrer">truncated SVD</a>
-      was a way to <strong>compress</strong> a matrix: keep only the top $k$ pieces, throw the rest away,
-      and rebuild an approximation. Same $k$ idea here — but the “matrix” is a stack of face photos,
-      and the approximation is a picture you can look at. A face is thousands of pixels; we ask how
-      small $k$ can be before you stop recognizing <em>this</em> person.
+      compressed a matrix by keeping only the top $k$ pieces. Here that matrix is literal:
+      each lined-up face is one long column of pixel values, and we stack about 240 such columns
+      into one big matrix $X$. The truncated SVD of $X$ finds $k$ shared “face directions” plus,
+      for every person, $k$ numbers that say how much of each direction to mix in. Rebuild those
+      $k$ numbers and you get an approximate picture — same math as before, but now the
+      approximation is a face you can recognize (or fail to).
     </p>
   </header>
 
@@ -21,11 +23,11 @@
     <ol class="theory-steps">
       <li>
         <p>
-          <strong>Compression means “keep $k$, discard the rest.”</strong>
-          Truncated SVD finds the best way (in a least-squares sense) to store each example as
-          $k$ numbers plus a shared decoder. Full data → thin middle of width $k$ → rebuilt copy.
-          That thin middle is the bottleneck. Small $k$ = aggressive compression (blurrier /
-          more generic). Large $k$ = milder compression (closer to the original).
+          <strong>Same truncation, different matrix.</strong>
+          Before, the entries of $A$ were abstract numbers. Now each column of $X$ is one face
+          (thousands of pixels). Truncated SVD still means: keep only rank $k$, throw the rest away,
+          rebuild. Each face becomes $k$ coefficients plus a shared decoder made from those top
+          pieces. Small $k$ = aggressive compression (more generic). Large $k$ = closer to the original.
         </p>
       </li>
       <li>

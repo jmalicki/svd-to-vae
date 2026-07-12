@@ -135,7 +135,7 @@ app.innerHTML = `
         </div>
 
         <div class="panel">
-          <h2>2 · Decompose $x$ along $n$</h2>
+          <h2>2 · Split $x$ into parallel and normal pieces</h2>
           <p>
             Fix a probe vector $x$ (blue). Project it onto the normal direction: the scalar
             $n^{\\top}x$ is how far $x$ sits on the $n$-side of the mirror, and the vector
@@ -146,10 +146,9 @@ app.innerHTML = `
           <p>
             is that piece of $x$ (sky-blue dashed in the figure). What remains,
             $x_{\\parallel} = x - x_{n}$, lies in the mirror (purple). So
-            $x = x_{\\parallel} + x_{n}$ — the usual split into a part along $n$ and a part
-            orthogonal to $n$.
+            $x = x_{\\parallel} + x_{n}$: a part parallel to the mirror and a part along $n$.
           </p>
-          <canvas id="build2" width="300" height="300" aria-label="Decompose x"></canvas>
+          <canvas id="build2" width="300" height="300" aria-label="Split x into parallel and normal pieces"></canvas>
           <p class="hint">Blue = $x$. Purple = $x_{\\parallel}$. Sky dashed = $x_n$ (construction piece along $n$).</p>
         </div>
 

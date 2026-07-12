@@ -189,20 +189,41 @@ header a {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 6px;
-  font-size: 0.9rem;
-  line-height: 1.35;
-  overflow-x: auto;
+  display: grid;
+  gap: 0.35rem;
   color: var(--ink);
 }
 
-.build-readout mjx-container {
-  margin: 0 !important;
-  overflow-x: auto;
-  overflow-y: hidden;
+.build-eq {
+  display: grid;
+  grid-template-columns: max-content max-content 1fr;
+  align-items: baseline;
+  gap: 0.35rem 0.45rem;
+  min-width: 0;
 }
 
-.build-readout mjx-container[jax="CHTML"] {
-  font-size: 105% !important;
+.build-eq-lhs {
+  justify-self: end;
+  line-height: 1.2;
+}
+
+.build-eq-lhs mjx-container {
+  margin: 0 !important;
+}
+
+.build-eq-op {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+}
+
+.build-eq-rhs {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.82rem;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow-x: auto;
 }
 
 .build-main {

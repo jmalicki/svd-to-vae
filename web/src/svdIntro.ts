@@ -97,7 +97,28 @@ app.innerHTML = `
           <span class="slider-label">Probe length <strong id="buildProbeLenVal">1.23</strong></span>
           <input id="buildProbeLen" type="range" min="0.4" max="2.0" step="0.01" value="1.23" />
         </label>
-        <div class="build-readout" id="buildFormula" aria-live="polite"></div>
+        <div class="build-readout" id="buildFormula" aria-live="polite">
+          <div class="build-eq">
+            <span class="build-eq-lhs">$n$</span>
+            <span class="build-eq-op">≈</span>
+            <span class="build-eq-rhs" id="buildValN">—</span>
+          </div>
+          <div class="build-eq">
+            <span class="build-eq-lhs">$n^{\\top}x$</span>
+            <span class="build-eq-op">≈</span>
+            <span class="build-eq-rhs" id="buildValDot">—</span>
+          </div>
+          <div class="build-eq">
+            <span class="build-eq-lhs">$x_{n}$</span>
+            <span class="build-eq-op">≈</span>
+            <span class="build-eq-rhs" id="buildValXn">—</span>
+          </div>
+          <div class="build-eq">
+            <span class="build-eq-lhs">$Hx$</span>
+            <span class="build-eq-op">≈</span>
+            <span class="build-eq-rhs" id="buildValHx">—</span>
+          </div>
+        </div>
       </aside>
 
       <div class="build-main">
@@ -123,13 +144,13 @@ app.innerHTML = `
             $$x_{n} = (n^{\\top}x)\\,n$$
           </div>
           <p>
-            is that piece of $x$ (magenta dashed in the figure). What remains,
+            is that piece of $x$ (sky-blue dashed in the figure). What remains,
             $x_{\\parallel} = x - x_{n}$, lies in the mirror (purple). So
             $x = x_{\\parallel} + x_{n}$ — the usual split into a part along $n$ and a part
             orthogonal to $n$.
           </p>
           <canvas id="build2" width="300" height="300" aria-label="Decompose x"></canvas>
-          <p class="hint">Blue = $x$. Purple = $x_{\\parallel}$. Magenta dashed = $x_n$ (construction piece along $n$).</p>
+          <p class="hint">Blue = $x$. Purple = $x_{\\parallel}$. Sky dashed = $x_n$ (construction piece along $n$).</p>
         </div>
 
         <div class="panel">
@@ -511,6 +532,10 @@ const el = {
   build2: app.querySelector<HTMLCanvasElement>("#build2")!,
   build3: app.querySelector<HTMLCanvasElement>("#build3")!,
   buildFormula: app.querySelector<HTMLElement>("#buildFormula")!,
+  buildValN: app.querySelector<HTMLElement>("#buildValN")!,
+  buildValDot: app.querySelector<HTMLElement>("#buildValDot")!,
+  buildValXn: app.querySelector<HTMLElement>("#buildValXn")!,
+  buildValHx: app.querySelector<HTMLElement>("#buildValHx")!,
 
   aimAng: app.querySelector<HTMLInputElement>("#aimAng")!,
   aimAngVal: app.querySelector<HTMLElement>("#aimAngVal")!,
@@ -787,32 +812,14 @@ function fmt(x: number, d = 2): string {
   return x.toFixed(d);
 }
 
-/** TeX number with a phantom minus so columns stay aligned under MathJax. */
-function texNum(x: number, d = 3): string {
+/** Signed number with a figure-space so columns don't jump when the sign flips. */
+function fmtSigned(x: number, d = 3): string {
   const body = Math.abs(x).toFixed(d);
-  return x < 0 ? `-${body}` : `\\phantom{-}${body}`;
+  return (x < 0 ? "−" : "\u2007") + body;
 }
 
-function texPair(x: number, y: number, d = 3): string {
-  return `(${texNum(x, d)},\\,${texNum(y, d)})`;
-}
-
-let buildFormulaTimer = 0;
-
-function scheduleBuildFormula(tex: string): void {
-  el.buildFormula.innerHTML = tex;
-  window.clearTimeout(buildFormulaTimer);
-  buildFormulaTimer = window.setTimeout(() => {
-    const mj = window.MathJax as
-      | {
-          typesetPromise?: (els?: Element[]) => Promise<void>;
-          typesetClear?: (els?: Element[]) => void;
-        }
-      | undefined;
-    if (!mj?.typesetPromise) return;
-    mj.typesetClear?.([el.buildFormula]);
-    void mj.typesetPromise([el.buildFormula]);
-  }, 50);
+function fmtPair(x: number, y: number, d = 3): string {
+  return `(${fmtSigned(x, d)}, ${fmtSigned(y, d)})`;
 }
 
 function clamp(x: number, lo: number, hi: number): number {
@@ -823,7 +830,7 @@ function clamp(x: number, lo: number, hi: number): number {
 
 const NORMAL_COLOR = "#009E73";
 /** Normal *component* xₙ — distinct from the unit normal n (green). */
-const XN_COLOR = "#CC79A7";
+const XN_COLOR = "#56B4E9";
 const DECOMP_COLOR = "#7B2D8E";
 
 let mirrorDial: ReturnType<typeof mountAngleDial>;
@@ -851,14 +858,10 @@ function paintBuild(): void {
   const [xp, yp] = parallel;
   const [xn, yn] = normal;
 
-  scheduleBuildFormula(
-    `$$\\begin{aligned}` +
-      `n &\\approx ${texPair(nx, ny)}\\\\[0.15em]` +
-      `n^{\\top}x &\\approx ${texNum(dot)}\\\\[0.15em]` +
-      `x_{n} &\\approx ${texPair(xn, yn)}\\\\[0.15em]` +
-      `Hx &\\approx ${texPair(hx, hy)}` +
-      `\\end{aligned}$$`,
-  );
+  el.buildValN.textContent = fmtPair(nx, ny);
+  el.buildValDot.textContent = fmtSigned(dot);
+  el.buildValXn.textContent = fmtPair(xn, yn);
+  el.buildValHx.textContent = fmtPair(hx, hy);
 
   // Fixed world window so the unit normal n does not appear to change length
   // when the probe slider moves (scale used to track probeLen via extent).

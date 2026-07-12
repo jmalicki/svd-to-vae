@@ -72,19 +72,17 @@ function noisyCode(modelIn: FaceModel, idx: number, k: number, tau: number): Flo
 
 function syncLabels(): void {
   el.rankVal.textContent = el.rank.value;
-  el.tauVal.textContent = Number(el.tau.value).toFixed(2);
+  el.tauVal.textContent = Number(el.tau.value).toFixed(3);
 }
 
 function explainTau(tau: number): void {
-  if (tau < 0.05) {
+  if (tau < 0.008) {
     el.tauExplain.textContent =
       "τ ≈ 0: noise is off. Every “variant” matches the exact bottleneck reconstruction of this face.";
-  } else if (tau < 0.35) {
-    el.tauExplain.textContent = `τ = ${tau.toFixed(2)}: small jiggle — same person-ish, slightly different lighting or expression.`;
-  } else if (tau < 0.9) {
-    el.tauExplain.textContent = `τ = ${tau.toFixed(2)}: stronger wander in code space — still face-like, clearly not a pixel blur of the original.`;
+  } else if (tau < 0.05) {
+    el.tauExplain.textContent = `τ = ${tau.toFixed(3)}: small jiggle — same person-ish, slightly different lighting or expression.`;
   } else {
-    el.tauExplain.textContent = `τ = ${tau.toFixed(2)}: far from $z$ — odd hybrids. Turn τ down to stay near the real face.`;
+    el.tauExplain.textContent = `τ = ${tau.toFixed(3)}: stronger wander in code space — still face-like, clearly not a pixel blur of the original.`;
   }
 }
 

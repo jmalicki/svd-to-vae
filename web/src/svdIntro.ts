@@ -94,8 +94,9 @@ app.innerHTML = `
       <h2>1 · Mirror and normal</h2>
       <p>
         The orange band is the mirror line through the origin. The green arrow is a unit
-        normal $n$ — length $1$, at right angles to the mirror. Every reflection we write
-        will be “bounce across this line,” which is the same data as “use this $n$.”
+        normal $n$ — length $1$, at right angles to the mirror. Choosing the mirror or
+        choosing $n$ is the same decision: the reflection is completely fixed once you
+        pick either one.
       </p>
       <canvas id="build1" width="300" height="300" aria-label="Mirror and normal"></canvas>
       <p class="hint">Orange = mirror. Green = $n$. Gray = coordinate axes.</p>

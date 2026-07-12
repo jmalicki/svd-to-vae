@@ -54,39 +54,78 @@ app.innerHTML = `
     </p>
     <p class="lede">
       Chapter 1 used <strong>rotations</strong> — length-preserving maps that never flip orientation.
-      Reflections are the same family with a flip: bounce across a mirror line, lengths stay the same.
-      The named construction is a <strong>Householder</strong> reflection. Here we use mirrors to
-      introduce zeros in a matrix, then read the leftover stretches — the same rotate–stretch–rotate
-      story, built from geometry.
+      Reflections are the other basic length-preserving move. We will write the operator as math,
+      watch what each symbol means in the plane, then use that same $H$ on purpose.
     </p>
   </header>
 
-  <section class="demo-block" aria-label="Free mirror">
-    <h2>Reflect across a line</h2>
-    <p class="demo-intro">
-      Chapter 1’s rotations move directions around while keeping every length the same.
-      There is a second length-preserving move that is just as basic: bounce across a line —
-      a <strong>reflection</strong>. Same lengths, but the picture flips to the other side of the mirror.
-      That flip is useful when you want to aim an arrow somewhere specific without stretching it.
-      Try it once so the move is in your hands; the next section will ask you to aim on purpose.
+  <section class="theory" aria-label="Build a reflection">
+    <h2>Building a reflection</h2>
+    <p>
+      A reflection across a line through the origin is completely determined by a unit vector
+      $n$ perpendicular to that line (the <strong>normal</strong>).
     </p>
+    <ol class="theory-steps">
+      <li>
+        <p>
+          Split any $x$ into a part along $n$ and a part parallel to the mirror:
+          the normal piece is $(n^{\\top}x)\\,n$.
+        </p>
+      </li>
+      <li>
+        <p>
+          Reflecting keeps the parallel part and reverses the normal part — subtract the
+          normal piece twice:
+        </p>
+        <div class="math">
+          $$Hx = x - 2(n^{\\top}x)\\,n$$
+        </div>
+      </li>
+      <li>
+        <p>
+          As a matrix that is $H = I - 2nn^{\\top}$. Then $H^{\\top}H = I$ and $\\det H = -1$.
+        </p>
+      </li>
+    </ol>
     <p class="demo-intro">
-      <strong>Your job:</strong> use the slider below to rotate the
-      <span class="mirror-label">orange line</span> in the pictures until the solid orange arrow
-      on the <em>right</em> matches the dashed blue target.
-      Left picture = before the bounce. Right picture = after. Gray lines are only the $x$/$y$ axes.
+      <strong>See the formula.</strong> Turn the mirror: green is $n$, blue is a fixed probe $x$,
+      orange is $Hx$. The readout is exactly $n^{\\top}x$ and $x - 2(n^{\\top}x)n$.
     </p>
     <div class="controls">
       <div class="control-row">
         <label class="slider">
-          <span class="slider-label">Rotate the orange line <strong id="mirAngVal">10°</strong></span>
+          <span class="slider-label">Mirror angle (sets $n$) <strong id="buildAngVal">35°</strong></span>
+          <input id="buildAng" type="range" min="-90" max="90" step="1" value="35" />
+        </label>
+        <p class="help">Changing the mirror rotates $n$; $H$ and $Hx$ update from the formula above.</p>
+      </div>
+    </div>
+    <p class="formula" id="buildFormula" aria-live="polite"></p>
+    <div class="panel">
+      <h2>$n$, $x$, and $Hx$</h2>
+      <canvas id="buildCanvas" width="360" height="360" aria-label="Reflection construction"></canvas>
+      <p class="hint">Orange band = mirror ($\\perp n$). Green = $n$. Blue = $x$. Orange arrow = $Hx$.</p>
+    </div>
+  </section>
+
+  <section class="demo-block" aria-label="Check reflection">
+    <h2>Check: choose $n$ so $Hx$ hits a target</h2>
+    <p class="demo-intro">
+      Same $H = I - 2nn^{\\top}$. Fix $x$ (solid orange) and a target $y$ (dashed blue).
+      Find the mirror — equivalently find $n$ — such that $Hx = y$.
+      When $\\|Hx - y\\| = 0$ you have the right reflection; $\\|Hx\\| = \\|x\\|$ the whole time.
+    </p>
+    <div class="controls">
+      <div class="control-row">
+        <label class="slider">
+          <span class="slider-label">Mirror angle (sets $n$) <strong id="mirAngVal">10°</strong></span>
           <input id="mirAng" type="range" min="-90" max="90" step="1" value="10" />
         </label>
-        <p class="help">This slider turns the mirror. Score on the right panel: orange solid vs blue dashed.</p>
+        <p class="help">Right panel shows $Hx$. Match it to the dashed target $y$.</p>
       </div>
     </div>
     <div class="hunt-meter" aria-hidden="true">
-      <span class="hunt-meter-label">Distance to target</span>
+      <span class="hunt-meter-label">$\\|Hx - y\\|$</span>
       <div class="hunt-meter-track">
         <div class="hunt-meter-fill" id="mirMeterFill"></div>
       </div>
@@ -94,82 +133,83 @@ app.innerHTML = `
     </div>
     <div class="grid-2 ellipse-pair" id="mirPanel">
       <div class="panel">
-        <h2>Before (do not chase this side)</h2>
-        <canvas id="mirIn" width="280" height="280" aria-label="Unit circle before reflection"></canvas>
-        <p class="hint">Starting orange arrow and blue target. Mirror shown for reference.</p>
+        <h2>Before ($x$ and target $y$)</h2>
+        <canvas id="mirIn" width="280" height="280" aria-label="Before reflection"></canvas>
+        <p class="hint">Orange = $x$. Dashed blue = $y$.</p>
       </div>
       <div class="panel">
-        <h2>After reflection — match the target here</h2>
-        <canvas id="mirOut" width="280" height="280" aria-label="Unit circle after reflection"></canvas>
-        <p class="hint">Solid orange = reflected arrow. Dashed blue = where it should land.</p>
+        <h2>After ($Hx$ vs $y$)</h2>
+        <canvas id="mirOut" width="280" height="280" aria-label="After reflection"></canvas>
+        <p class="hint">Solid orange = $Hx$. Dashed blue = $y$.</p>
       </div>
     </div>
-    <p class="hunt-banner" id="mirBanner" hidden>Matched — reflection flipped the arrow onto the target without stretching.</p>
+    <p class="hunt-banner" id="mirBanner" hidden>$Hx = y$ — you found the $n$ for this reflection.</p>
     <p class="hint" id="mirHint"></p>
-    <p class="formula">
-      Once you see the picture: $H = I - 2nn^{\\top}$ with unit normal $n$ to the mirror.
-      $H$ is orthogonal ($H^{\\top}H=I$) and $\\det H = -1$.
-    </p>
   </section>
 
   <section class="demo-block" aria-label="Aim onto axis">
-    <h2>Aim an arrow onto the axis</h2>
+    <h2>Which $n$ sends $a$ onto the axis?</h2>
     <p class="demo-intro">
-      Drag the slider until the reflected orange arrow lies flat on the horizontal axis.
-      That special mirror is a Householder: same lengths, but the arrow’s height becomes zero.
+      Now pick the target on purpose: we want $Ha = (\\|a\\|, 0)$ — a zero in the second coordinate,
+      length unchanged. That choice of reflection is a <strong>Householder</strong>.
+      Find $n$ with the slider; then we write how $n$ is built from $a$.
     </p>
     <div class="controls">
       <div class="control-row">
         <label class="slider">
-          <span class="slider-label">Arrow angle <strong id="aimAngVal">55°</strong></span>
+          <span class="slider-label">Arrow $a$ angle <strong id="aimAngVal">55°</strong></span>
           <input id="aimAng" type="range" min="-170" max="170" step="1" value="55" />
         </label>
         <label class="slider">
-          <span class="slider-label">Arrow length <strong id="aimLenVal">1.40</strong></span>
+          <span class="slider-label">Arrow $a$ length <strong id="aimLenVal">1.40</strong></span>
           <input id="aimLen" type="range" min="0.4" max="2.2" step="0.05" value="1.4" />
         </label>
       </div>
       <div class="control-actions">
         <div class="btns">
-          <button id="aimChallenge" type="button">New challenge</button>
+          <button id="aimChallenge" type="button">Another $a$</button>
         </div>
-        <p class="help">Random arrow; resets your mirror away from the answer.</p>
+        <p class="help">New vector $a$; resets the mirror away from the solution.</p>
       </div>
     </div>
 
     <div class="panel hunt-panel" id="huntPanel">
-      <h2>Your move</h2>
+      <h2>Find $n$ so $Ha$ has height $0$</h2>
       <div class="controls" style="margin-bottom:0.5rem">
         <div class="control-row">
           <label class="slider">
-            <span class="slider-label">Rotate the orange line <strong id="huntAngVal">20°</strong></span>
+            <span class="slider-label">Mirror angle (sets $n$) <strong id="huntAngVal">20°</strong></span>
             <input id="huntAng" type="range" min="-90" max="90" step="1" value="20" />
           </label>
-          <p class="help">Use this slider until the height meter hits zero.</p>
+          <p class="help">Height of $Ha$ is $|(Ha)_2|$. Drive it to zero.</p>
         </div>
       </div>
       <div class="hunt-meter" aria-hidden="true">
-        <span class="hunt-meter-label">Height off axis</span>
+        <span class="hunt-meter-label">$|(Ha)_2|$</span>
         <div class="hunt-meter-track">
           <div class="hunt-meter-fill" id="huntMeterFill"></div>
         </div>
         <strong class="hunt-meter-val" id="huntMeterVal">—</strong>
       </div>
-      <canvas id="huntCanvas" width="360" height="360" aria-label="Free mirror hunt for zero"></canvas>
-      <p class="hunt-banner" id="huntBanner" hidden>Got it — that mirror is the Householder.</p>
+      <canvas id="huntCanvas" width="360" height="360" aria-label="Find n so Ha is on axis"></canvas>
+      <p class="hunt-banner" id="huntBanner" hidden>$Ha$ is on the axis — this $n$ is the Householder normal.</p>
       <p class="hint" id="huntHint"></p>
     </div>
 
     <div class="panel" id="aimSolutionPanel">
-      <h2>Why that mirror works</h2>
+      <h2>Construction of that $n$</h2>
       <p class="help" id="aimSolutionTease">
-        Solve the mirror puzzle above to see why that angle works.
+        Get $|(Ha)_2| = 0$ above; then we show the formula for $n$.
       </p>
       <div id="aimSolutionBody" hidden>
         <p class="demo-intro" style="margin-top:0">
-          The winning mirror is the <strong>perpendicular bisector</strong> between the tip of $a$
-          and the target $(\\|a\\|, 0)$. Reflect across it and $a$ lands on the axis.
+          If the target is $t = (\\|a\\|, 0)$, the normal points along $a - t$
+          (perpendicular bisector of the segment from $a$ to $t$). Normalize for unit $n$,
+          then $H = I - 2nn^{\\top}$ sends $a$ to $t$.
         </p>
+        <div class="math">
+          $$n = \\frac{a - t}{\\|a - t\\|},\\qquad t = (\\|a\\|, 0)$$
+        </div>
         <canvas id="aimCanvas" width="360" height="360" aria-label="Constructed Householder mirror"></canvas>
         <p class="hint" id="aimReadout"></p>
       </div>
@@ -179,8 +219,9 @@ app.innerHTML = `
   <section class="demo-block" aria-label="Larger matrix Householder">
     <h2>One Householder on a $5\\times 5$</h2>
     <p class="demo-intro">
-      Same move in higher dimension: aim the first column onto the first axis.
-      You cannot draw the $n$D mirror, but the heatmap and stem plot show the zeros appear under the pivot.
+      Same construction in higher dimension: build $H = I - 2nn^{\\top}$ from the first column
+      so that column becomes $(\\pm\\|\\mathrm{col}_1\\|, 0, \\ldots, 0)$. The heatmap and stem plot
+      show those zeros — the $n$D mirror is not drawn, but the algebra is the same.
     </p>
     <div class="controls">
       <div class="control-actions">
@@ -388,6 +429,10 @@ const el = {
   mirBanner: app.querySelector<HTMLElement>("#mirBanner")!,
   mirHint: app.querySelector<HTMLElement>("#mirHint")!,
   mirPanel: app.querySelector<HTMLElement>("#mirPanel")!,
+  buildAng: app.querySelector<HTMLInputElement>("#buildAng")!,
+  buildAngVal: app.querySelector<HTMLElement>("#buildAngVal")!,
+  buildCanvas: app.querySelector<HTMLCanvasElement>("#buildCanvas")!,
+  buildFormula: app.querySelector<HTMLElement>("#buildFormula")!,
 
   aimAng: app.querySelector<HTMLInputElement>("#aimAng")!,
   aimAngVal: app.querySelector<HTMLElement>("#aimAngVal")!,
@@ -684,6 +729,43 @@ function clamp(x: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, x));
 }
 
+/* ── Build reflection operator ─────────────────────────────────────────── */
+
+const BUILD_PROBE: [number, number] = [1.1, 0.55];
+const NORMAL_COLOR = "#009E73";
+
+function paintBuild(): void {
+  const ang = Number(el.buildAng.value);
+  el.buildAngVal.textContent = `${ang}°`;
+  const [nx, ny] = normalFromLineAngle(ang);
+  const H = householderFromNormal(nx, ny);
+  const [hx, hy] = applyMat2(H, BUILD_PROBE[0], BUILD_PROBE[1]);
+  const dot = nx * BUILD_PROBE[0] + ny * BUILD_PROBE[1];
+
+  el.buildFormula.textContent =
+    `n ≈ (${fmt(nx, 3)}, ${fmt(ny, 3)}) · ` +
+    `nᵀx ≈ ${fmt(dot, 3)} · ` +
+    `Hx = x − 2(nᵀx)n ≈ (${fmt(hx, 3)}, ${fmt(hy, 3)})`;
+
+  paintCanvas(el.buildCanvas, 1.6, (ctx, cx, cy, scale) => {
+    drawMirrorLine(ctx, cx, cy, scale, ang, 1.6);
+    drawArrow(ctx, cx, cy, scale, nx, ny, NORMAL_COLOR, "n");
+    drawArrow(ctx, cx, cy, scale, BUILD_PROBE[0], BUILD_PROBE[1], ACCENT, "x");
+    drawArrow(ctx, cx, cy, scale, hx, hy, ACCENT2, "Hx");
+    // projection segment along n
+    ctx.strokeStyle = MUTED;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    const [px0, py0] = toCanvas(cx, cy, scale, BUILD_PROBE[0], BUILD_PROBE[1]);
+    const [px1, py1] = toCanvas(cx, cy, scale, hx, hy);
+    ctx.moveTo(px0, py0);
+    ctx.lineTo(px1, py1);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+}
+
 /* ── Reflect across a line (match target) ──────────────────────────────── */
 
 /** Orange arrow to flip; dashed blue = where it should land. */
@@ -748,8 +830,8 @@ function paintMirror(): void {
   el.mirBanner.hidden = !won;
   el.mirPanel.classList.toggle("hunt-won", won);
   el.mirHint.textContent = won
-    ? "The orange arrow bounced onto the blue target. Lengths stayed the same."
-    : "Keep moving the slider. Score is on the right: orange solid vs blue dashed.";
+    ? "Hx = y with the n from this mirror. Lengths: ‖Hx‖ = ‖x‖."
+    : "Adjust n until ‖Hx − y‖ is near zero (right panel).";
 
   paintCanvas(el.mirIn, 1.4, (ctx, cx, cy, scale) => {
     drawMirrorLine(ctx, cx, cy, scale, ang, 1.4);
@@ -860,15 +942,14 @@ function paintAim(): void {
 
   if (onAxis) {
     el.huntHint.textContent =
-      `Reflected tip ≈ (${fmt(rx, 3)}, ${fmt(ry, 3)}). ` +
-      `Mirror ${Math.round(hunt)}° matches the Householder construction below.`;
+      `Ha ≈ (${fmt(rx, 3)}, ${fmt(ry, 3)}). This n matches n ∥ (a − t) below.`;
     el.aimSolutionTease.hidden = true;
     el.aimSolutionBody.hidden = false;
   } else {
     const warmth =
-      meter < 0.15 ? "Very close — nudge carefully." :
-      meter < 0.35 ? "Getting warmer." :
-      "Keep moving the slider.";
+      meter < 0.15 ? "Almost: |(Ha)₂| is nearly 0." :
+      meter < 0.35 ? "n is getting closer." :
+      "Vary n; watch |(Ha)₂|.";
     el.huntHint.textContent = warmth;
     // Keep solution visible once unlocked for this arrow; re-lock only on new challenge
     if (!huntWon) {
@@ -897,7 +978,7 @@ function paintAim(): void {
   });
 
   el.aimReadout.textContent =
-    `‖a‖ = ${fmt(aimed.normA, 3)}. Householder mirror ≈ ${fmt(aimed.mirrorAngleDeg, 1)}°. ` +
+    `t = (${fmt(aimed.targetX, 3)}, 0). n ≈ (${fmt(aimed.nx, 3)}, ${fmt(aimed.ny, 3)}). ` +
     `Ha ≈ (${fmt(aimed.targetX, 3)}, 0).`;
 }
 
@@ -1137,6 +1218,7 @@ function paintSvd(): void {
 /* ── Master paint + listeners ──────────────────────────────────────────── */
 
 function paintAll(): void {
+  paintBuild();
   paintMirror();
   paintAim();
   paintHH();
@@ -1145,6 +1227,7 @@ function paintAll(): void {
   paintSvd();
 }
 
+el.buildAng.addEventListener("input", paintBuild);
 el.mirAng.addEventListener("input", paintMirror);
 
 el.aimChallenge.addEventListener("click", newAimChallenge);

@@ -25,11 +25,13 @@ with a concrete picture.
    from abstract factors.
 3. **See / measure, then name.** Introduce Greek letters and formal names only
    after the learner has seen the quantity (axis length, error, code width).
-4. **Geometry before algebra for orthogonal maps.** Householder = mirror first;
-   $I-2nn^{\\top}$ only after the picture. Aim-onto-axis via perpendicular
-   bisector before “introduce a zero.” Do not present classical Gram–Schmidt as
-   the path to the SVD (GS/QR is a different factorization; Householder appears
-   in SVD *bidiagonalization*).
+4. **Connect intuition and math.** Interactives exist to make a formula or
+   construction concrete — not as games for their own sake. For reflections /
+   Householder: state $Hx = x - 2(n^{\\top}x)n$ (or $n \\propto a-t$), then let
+   the figure answer “what is $n$? / what is $Hx$?” Geometry before a bare
+   formula dump is fine; a bare game with no math question is not. Do not
+   present classical Gram–Schmidt as the path to the SVD (Householder appears
+   in SVD bidiagonalization; GS/QR is a different factorization).
 5. **Avoid special cases that hide the concept.** First worked examples must
    force the distinction you care about (e.g. tilted $A$ so $\sigma$ ≠ diagonal
    entries; warped faces so pixel-SVD fails). Diagonal / identity / toy cases

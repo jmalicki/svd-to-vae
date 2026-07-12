@@ -9,14 +9,15 @@ import {
   frameFromMatrix,
   movieStages,
   rot2,
+  rotationMatrixDeg,
   sampleStretchRange,
+  stretchMatrix,
   vecLen,
 } from "./svdGeometry2d";
 
-describe("rot2", () => {
+describe("rot2 / rotationMatrixDeg", () => {
   it("is orthogonal with det +1", () => {
     const R = rot2(0.7);
-    // Rᵀ R ≈ I
     const c = Math.cos(0.7);
     const s = Math.sin(0.7);
     expect(get(R, 0, 0)).toBeCloseTo(c, 12);
@@ -25,6 +26,24 @@ describe("rot2", () => {
     expect(get(R, 1, 1)).toBeCloseTo(c, 12);
     const det = get(R, 0, 0) * get(R, 1, 1) - get(R, 0, 1) * get(R, 1, 0);
     expect(det).toBeCloseTo(1, 12);
+  });
+
+  it("preserves lengths on the unit circle", () => {
+    const R = rotationMatrixDeg(35);
+    const { max, min } = sampleStretchRange(R, 720);
+    expect(max).toBeCloseTo(1, 3);
+    expect(min).toBeCloseTo(1, 3);
+  });
+});
+
+describe("stretchMatrix", () => {
+  it("scales axis directions by sx and sy", () => {
+    const S = stretchMatrix(2, 0.5);
+    expect(applyMat2(S, 1, 0)).toEqual([2, 0]);
+    expect(applyMat2(S, 0, 1)).toEqual([0, 0.5]);
+    const { max, min } = sampleStretchRange(S, 720);
+    expect(max).toBeCloseTo(2, 2);
+    expect(min).toBeCloseTo(0.5, 2);
   });
 });
 
@@ -39,12 +58,11 @@ describe("buildAFromFactors", () => {
     const svd = classicalSvd(A, 2);
     expect(svd.sigma[0]).toBeCloseTo(sigma[0], 8);
     expect(svd.sigma[1]).toBeCloseTo(sigma[1], 8);
-    // Columns of U,V are unit length
     expect(vecLen(get(U, 0, 0), get(U, 1, 0))).toBeCloseTo(1, 12);
     expect(vecLen(get(V, 0, 0), get(V, 1, 0))).toBeCloseTo(1, 12);
   });
 
-  it("matches classical SVD reconstruction in Frobenius norm", () => {
+  it("is exactly rotate ∘ stretch ∘ rotate", () => {
     const { A } = buildAFromFactors({
       s1: 1.8,
       s2: 0.9,
@@ -119,7 +137,6 @@ describe("TILTED_EXAMPLE_A", () => {
     expect(f.sigma[0]).not.toBeCloseTo(1.5, 1);
     expect(f.sigma[1]).not.toBeCloseTo(1.2, 1);
     expect(f.sigma[0]).toBeGreaterThan(f.sigma[1]);
-    // Off-diagonals are nonzero — genuinely tilted
     expect(Math.abs(get(TILTED_EXAMPLE_A, 0, 1))).toBeGreaterThan(0.1);
     expect(Math.abs(get(TILTED_EXAMPLE_A, 1, 0))).toBeGreaterThan(0.1);
   });

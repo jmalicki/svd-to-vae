@@ -29,7 +29,7 @@ export type EllipseFrame = {
   outScale: number;
 };
 
-/** Worked example on the geometry page: tilted so σ ≠ diagonal of A. */
+/** General (tilted) example: σ ≠ diagonal of A. */
 export const TILTED_EXAMPLE_A = fromNested([
   [1.5, 1.0],
   [0.2, 1.2],
@@ -46,6 +46,19 @@ export function rot2(thetaRad: number): Matrix {
   return fromNested([
     [c, -s],
     [s, c],
+  ]);
+}
+
+/** 2D rotation by θ degrees (counterclockwise). */
+export function rotationMatrixDeg(deg: number): Matrix {
+  return rot2(degToRad(deg));
+}
+
+/** Axis-aligned stretch: scales x by sx and y by sy. */
+export function stretchMatrix(sx: number, sy: number): Matrix {
+  return fromNested([
+    [sx, 0],
+    [0, sy],
   ]);
 }
 
@@ -72,10 +85,7 @@ export function buildAFromFactors(f: AngleFactors): {
 } {
   const U = rot2(degToRad(f.thUDeg));
   const V = rot2(degToRad(f.thVDeg));
-  const S = fromNested([
-    [f.s1, 0],
-    [0, f.s2],
-  ]);
+  const S = stretchMatrix(f.s1, f.s2);
   const A = matmul(matmul(U, S), transpose(V));
   return { A, U, V, sigma: [f.s1, f.s2] };
 }
@@ -92,10 +102,7 @@ function packFrame(
   s2: number,
 ): EllipseFrame {
   const Vt = transpose(V);
-  const S = fromNested([
-    [s1, 0],
-    [0, s2],
-  ]);
+  const S = stretchMatrix(s1, s2);
   return {
     A,
     U,

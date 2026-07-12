@@ -1,10 +1,11 @@
 import "./style.css";
 import { chapterNav } from "./chapterNav";
 import {
-  TILTED_EXAMPLE_A,
   applyMat2,
   frameFromFactors,
   frameFromMatrix,
+  rotationMatrixDeg,
+  stretchMatrix,
   type AngleFactors,
   type EllipseFrame,
 } from "./svdGeometry2d";
@@ -18,8 +19,8 @@ declare global {
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 
-/** Fixed tilted example: σ ≠ diagonal entries. */
-const EXAMPLE_A = TILTED_EXAMPLE_A;
+const ROT_A = rotationMatrixDeg(40);
+const STRETCH_A = stretchMatrix(2.2, 0.7);
 
 app.innerHTML = `
   <header>
@@ -29,70 +30,81 @@ app.innerHTML = `
       <a href="https://github.com/jmalicki/svd-to-vae" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
     </p>
     <p class="lede">
-      Think of a $2\\times 2$ matrix $A$ as a <strong>linear transformation</strong>: it sends each vector $x$
-      to $Ax$. To see what that transformation does — how much it stretches, and in which directions —
-      we use a simple picture: send every length-$1$ vector through $A$. Their tips always form an
-      <strong>ellipse</strong>. The ellipse is a pedagogical tool, not the object of study;
-      from it we will read off the singular values and the SVD.
+      You already know that a matrix multiplies vectors: given $A$ and $x$, you can compute $Ax$.
+      That is what people mean when they say $A$ is a <strong>linear transformation</strong> —
+      a rule that sends vectors to vectors, and respects addition and scaling.
+      We will understand general $2\\times 2$ matrices by first meeting two simple ones —
+      <strong>rotation</strong> and <strong>stretch</strong> — and only then putting them together.
     </p>
   </header>
 
-  <section class="theory" aria-label="Setup">
-    <h2>The picture</h2>
-    <ol class="theory-steps">
-      <li>
-        <p>
-          <strong>Unit circle in, ellipse out.</strong>
-          Left: every tip has length $1$. Right: the same tips after $A$.
-          Whatever $A$ you pick (nonsingular), you get some ellipse — never a starfish.
-        </p>
-      </li>
-      <li>
-        <p>
-          <strong>Read stretches from the ellipse.</strong>
-          The long and short axis lengths tell you the strongest and weakest stretch $A$ can apply
-          to a unit vector. Those lengths will get names once you can see them.
-        </p>
-      </li>
-    </ol>
-  </section>
-
-  <section class="worked-example" aria-label="Worked example">
-    <h2>One concrete matrix (tilted)</h2>
+  <section class="worked-example" aria-label="Simple pieces">
+    <h2>Piece 1 · Rotation</h2>
     <p>
-      Start with a matrix that is <em>not</em> diagonal. The ellipse will tilt, and the stretch
-      lengths will <em>not</em> match the numbers sitting on the diagonal of $A$ — which is why
-      we need a better description than “look at the entries.”
+      A rotation matrix turns every vector by the same angle and never changes lengths.
+      On the unit circle, tips stay on a circle — they just spin.
     </p>
     <div class="math">
-      $$A = \\begin{bmatrix} 1.5 & 1.0 \\\\ 0.2 & 1.2 \\end{bmatrix}$$
+      $$R_{40^{\\circ}} = \\begin{bmatrix} \\cos 40^{\\circ} & -\\sin 40^{\\circ} \\\\ \\sin 40^{\\circ} & \\cos 40^{\\circ} \\end{bmatrix}$$
     </div>
-    <ul class="example-bullets">
-      <li>$(1,0)$ goes to $A(1,0)=(1.5,\\,0.2)$ — length $\\sqrt{1.5^{2}+0.2^{2}}\\approx 1.51$.</li>
-      <li>$(0,1)$ goes to $A(0,1)=(1.0,\\,1.2)$ — length $\\sqrt{1^{2}+1.2^{2}}\\approx 1.56$.</li>
-      <li>Those are just two directions. Sweep the whole circle → the ellipse on the right.</li>
-    </ul>
     <div class="grid-2 ellipse-pair">
       <div class="panel">
-        <h2>Before: unit circle</h2>
-        <canvas id="exIn" width="320" height="320" aria-label="Example unit circle"></canvas>
+        <h2>Inputs of length 1</h2>
+        <canvas id="rotIn" width="280" height="280" aria-label="Unit circle before rotation"></canvas>
         <p class="hint">Orange $(1,0)$. Blue $(0,1)$.</p>
       </div>
       <div class="panel">
-        <h2>After: multiply by $A$</h2>
-        <canvas id="exOut" width="320" height="320" aria-label="Example ellipse"></canvas>
-        <p class="hint">Same two arrows after $A$. The whole circle becomes a tilted ellipse.</p>
+        <h2>After rotation</h2>
+        <canvas id="rotOut" width="280" height="280" aria-label="Unit circle after rotation"></canvas>
+        <p class="hint">Still a circle. Only the directions moved.</p>
       </div>
     </div>
-    <p class="example-takeaway" id="exampleStretch"></p>
+
+    <h2>Piece 2 · Stretch</h2>
+    <p>
+      A diagonal matrix stretches the axes independently: scale $x$ by one factor, $y$ by another.
+      Lengths change. The unit circle becomes an axis-aligned ellipse.
+    </p>
+    <div class="math">
+      $$S = \\begin{bmatrix} 2.2 & 0 \\\\ 0 & 0.7 \\end{bmatrix}$$
+    </div>
+    <div class="grid-2 ellipse-pair">
+      <div class="panel">
+        <h2>Inputs of length 1</h2>
+        <canvas id="stIn" width="280" height="280" aria-label="Unit circle before stretch"></canvas>
+        <p class="hint">Same unit circle.</p>
+      </div>
+      <div class="panel">
+        <h2>After stretch</h2>
+        <canvas id="stOut" width="280" height="280" aria-label="Ellipse after stretch"></canvas>
+        <p class="hint">Long reach $2.2$ along $x$, short reach $0.7$ along $y$.</p>
+      </div>
+    </div>
+
+    <h2>Putting the pieces together</h2>
+    <p>
+      A general linear transformation is not “only rotate” or “only stretch.”
+      But it <em>is</em> always a composition of those kinds of pieces:
+      rotate, then stretch, then rotate again.
+      That is the
+      <a href="https://en.wikipedia.org/wiki/Singular_value_decomposition" target="_blank" rel="noopener noreferrer">singular value decomposition</a>
+      (SVD). The stretch factors are the <strong>singular values</strong> $\\sigma_1 \\ge \\sigma_2$.
+    </p>
+    <div class="math">
+      $$A = U\\,\\mathrm{diag}(\\sigma_1,\\sigma_2)\\,V^{\\top}$$
+    </div>
+    <p>
+      Below: scrub a general $A$, watch the output ellipse, then see the three-step movie
+      for <em>your</em> matrix.
+    </p>
   </section>
 
   <section class="demo-block" aria-label="Analysis playground">
-    <h2>Try your own matrix</h2>
+    <h2>A general matrix</h2>
     <p class="demo-intro">
-      Edit the entries of $A$. Use the ellipse as a readout: the longest and shortest stretches
-      over the unit circle are the <strong>singular values</strong> $\\sigma_1 \\ge \\sigma_2$ —
-      how hard $A$ pulls in its strongest and weakest directions.
+      Edit the entries. The longest and shortest reaches from the origin on the output ellipse
+      are $\\sigma_1$ and $\\sigma_2$ — the same stretch amounts as in the diagonal piece above,
+      but aimed in whatever directions $U$ and $V$ choose.
     </p>
 
     <div class="controls">
@@ -151,10 +163,10 @@ app.innerHTML = `
   </section>
 
   <section class="movie-block" aria-label="Rotate stretch rotate">
-    <h2>How $A$ factors: rotate, stretch, rotate</h2>
+    <h2>A clean description of $A$: rotate, stretch, rotate</h2>
     <p class="demo-intro">
-      The ellipse picture suggests a clean description of $A$ itself: re-aim, stretch by
-      $\\sigma_1$ and $\\sigma_2$, re-aim again. The panels use the SVD of <em>your</em> matrix above.
+      The same two pieces you met above, composed. For <em>your</em> matrix: re-aim ($V^{\\top}$),
+      stretch by $\\sigma_1$ and $\\sigma_2$, re-aim again ($U$).
     </p>
     <div class="movie-row" id="movieRow">
       <div class="panel movie-panel">
@@ -254,9 +266,9 @@ app.innerHTML = `
   <section class="appendix" id="appendix" aria-label="Takeaways">
     <h2>Takeaways</h2>
     <ul class="example-bullets">
-      <li>To understand $A$ as a linear transformation, watch what it does to the unit circle — the image is an ellipse.</li>
-      <li>$\\sigma_1$ and $\\sigma_2$ are the longest and shortest stretches of unit vectors (the ellipse axes), not (in general) the diagonal of $A$.</li>
-      <li>That yields a factorization: rotate → stretch → rotate, $A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$.</li>
+      <li>Rotation turns directions without changing lengths; stretch changes lengths along axes.</li>
+      <li>Every $2\\times 2$ linear transformation is rotate → stretch → rotate (the SVD).</li>
+      <li>The stretch amounts are the singular values $\\sigma_1 \\ge \\sigma_2$.</li>
     </ul>
     <p>
       <a href="./truncate.html">Next →</a>
@@ -292,9 +304,10 @@ const el = {
   a22Val: app.querySelector<HTMLElement>("#a22Val")!,
   analysisA: app.querySelector<HTMLElement>("#analysisA")!,
   stretchReadout: app.querySelector<HTMLElement>("#stretchReadout")!,
-  exampleStretch: app.querySelector<HTMLElement>("#exampleStretch")!,
-  exIn: app.querySelector<HTMLCanvasElement>("#exIn")!,
-  exOut: app.querySelector<HTMLCanvasElement>("#exOut")!,
+  rotIn: app.querySelector<HTMLCanvasElement>("#rotIn")!,
+  rotOut: app.querySelector<HTMLCanvasElement>("#rotOut")!,
+  stIn: app.querySelector<HTMLCanvasElement>("#stIn")!,
+  stOut: app.querySelector<HTMLCanvasElement>("#stOut")!,
   anIn: app.querySelector<HTMLCanvasElement>("#anIn")!,
   anOut: app.querySelector<HTMLCanvasElement>("#anOut")!,
   mv0: app.querySelector<HTMLCanvasElement>("#mv0")!,
@@ -511,25 +524,30 @@ function paintPair(
   });
 }
 
-function paintExample(): void {
-  const f = frameFromMatrix(EXAMPLE_A);
-  paintCanvas(el.exIn, 1.35, (ctx, cx, cy, scale) => {
+function paintPieces(): void {
+  paintCanvas(el.rotIn, 1.35, (ctx, cx, cy, scale) => {
     drawCurve(ctx, cx, cy, scale, (t) => [Math.cos(t), Math.sin(t)], INK);
     drawArrow(ctx, cx, cy, scale, 1, 0, ACCENT2, "(1, 0)");
     drawArrow(ctx, cx, cy, scale, 0, 1, ACCENT, "(0, 1)");
   });
-  paintCanvas(el.exOut, f.outScale, (ctx, cx, cy, scale) => {
-    drawCurve(ctx, cx, cy, scale, (t) => applyMat2(EXAMPLE_A, Math.cos(t), Math.sin(t)), INK);
-    const [a10, a11] = applyMat2(EXAMPLE_A, 1, 0);
-    const [a20, a21] = applyMat2(EXAMPLE_A, 0, 1);
-    drawArrow(ctx, cx, cy, scale, a10, a11, ACCENT2, "A(1,0)");
-    drawArrow(ctx, cx, cy, scale, a20, a21, ACCENT, "A(0,1)");
-    drawArrow(ctx, cx, cy, scale, get(f.U, 0, 0) * f.sigma[0], get(f.U, 1, 0) * f.sigma[0], "#666", "long axis");
+  paintCanvas(el.rotOut, 1.35, (ctx, cx, cy, scale) => {
+    drawCurve(ctx, cx, cy, scale, (t) => applyMat2(ROT_A, Math.cos(t), Math.sin(t)), INK);
+    const [a10, a11] = applyMat2(ROT_A, 1, 0);
+    const [a20, a21] = applyMat2(ROT_A, 0, 1);
+    drawArrow(ctx, cx, cy, scale, a10, a11, ACCENT2, "R(1,0)");
+    drawArrow(ctx, cx, cy, scale, a20, a21, ACCENT, "R(0,1)");
   });
-  el.exampleStretch.textContent =
-    `Longest stretch on this ellipse: σ₁ ≈ ${fmt(f.sigma[0])}. ` +
-    `Shortest: σ₂ ≈ ${fmt(f.sigma[1])}. ` +
-    `Compare to the diagonal entries 1.5 and 1.2 — not the same.`;
+
+  paintCanvas(el.stIn, 1.35, (ctx, cx, cy, scale) => {
+    drawCurve(ctx, cx, cy, scale, (t) => [Math.cos(t), Math.sin(t)], INK);
+    drawArrow(ctx, cx, cy, scale, 1, 0, ACCENT2, "(1, 0)");
+    drawArrow(ctx, cx, cy, scale, 0, 1, ACCENT, "(0, 1)");
+  });
+  paintCanvas(el.stOut, 2.6, (ctx, cx, cy, scale) => {
+    drawCurve(ctx, cx, cy, scale, (t) => applyMat2(STRETCH_A, Math.cos(t), Math.sin(t)), INK);
+    drawArrow(ctx, cx, cy, scale, 2.2, 0, ACCENT2, "(2.2, 0)");
+    drawArrow(ctx, cx, cy, scale, 0, 0.7, ACCENT, "(0, 0.7)");
+  });
 }
 
 function paintMovie(f: EllipseFrame): void {
@@ -617,7 +635,7 @@ app.querySelectorAll<HTMLButtonElement>("[data-preset]").forEach((btn) => {
   });
 });
 
-paintExample();
+paintPieces();
 redrawAnalysis();
 redrawSynth();
 
@@ -643,7 +661,7 @@ function tick(): void {
 requestAnimationFrame(tick);
 
 window.addEventListener("resize", () => {
-  paintExample();
+  paintPieces();
   const af = analysisFrame ?? rebuildAnalysis();
   paintMovie(af);
   paintPair(el.anIn, el.anOut, af, probe, {

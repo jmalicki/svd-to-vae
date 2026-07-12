@@ -369,14 +369,17 @@
   <section class="demo-block" aria-label="Left then right steps">
     <h2>Simplify from both sides</h2>
     <p class="demo-intro">
-      Left Householder aims column 1 onto the axis. Then a right rotation (Givens) zeros the
-      remaining off-diagonal in $2\times 2$. What remains on the diagonal are the stretch amounts.
+      Zeros can come from the left <em>and</em> the right. A left Householder aims column 1 onto
+      the axis. Then a right rotation zeros the remaining off-diagonal in $2\times 2$. What is
+      left on the diagonal are the stretch amounts — same axis lengths as on the ellipse.
+      For larger matrices the same idea (orthogonal maps from both sides) is how one thins $A$
+      down; the next page names the finished factorization.
     </p>
     <div class="controls">
       <div class="control-actions">
         <div class="btns">
           <button id="stepLeft" type="button">Apply left $H$</button>
-          <button id="stepRight" type="button" class="secondary">Apply right $G$</button>
+          <button id="stepRight" type="button" class="secondary">Apply right $R$</button>
           <button id="stepReset" type="button" class="secondary">Reset</button>
         </div>
         <p class="help" id="stepHelp">Start from the demo $2\times 2$. Apply left, then right.</p>
@@ -392,88 +395,21 @@
       <div class="panel">
         <h2>Current map</h2>
         <canvas id="stepOut" width="280" height="280" aria-label="Ellipse after left/right steps"></canvas>
-        <p class="hint">Left $H$ reflects the ellipse; right $G$ keeps the same output set.</p>
+        <p class="hint">Left $H$ reflects the ellipse; right $R$ keeps the same output set.</p>
       </div>
     </div>
-  </section>
-
-  <section class="theory" aria-label="Assemble the product">
-    <h2>Assemble the pieces</h2>
-    <p>
-      The orthogonal maps you applied on the left accumulate into an output reorientation $U$
-      (rotations and reflections). Those on the right accumulate into an input reorientation $V$.
-      The leftover diagonal entries (absolute values) are the stretch amounts $\sigma_1, \sigma_2$
-      — the same axis lengths you saw on the ellipse.
-    </p>
-    <div class="math">
-      $$A = U\,\mathrm{diag}(\sigma)\,V^{\top}$$
-    </div>
-    <p>
-      That is chapter 1’s rotate → stretch → rotate again, written as a product.
-      Reflections are allowed in the outer factors; lengths of the stretches are unchanged.
-    </p>
-  </section>
-
-  <section class="demo-block" aria-label="Any size factors">
-    <h2>Same pieces, any size</h2>
-    <p class="demo-intro">
-      For a random $n\times n$ matrix the finished factors look the same: two orthogonal matrices
-      and a list of nonnegative stretches. Libraries build them with Householder-style zeros first,
-      then iteration on a simpler form — we show the finished product here.
-    </p>
-    <div class="controls">
-      <div class="control-row">
-        <label class="slider">
-          <span class="slider-label">Size <em>n</em> <strong id="sizeVal">5</strong></span>
-          <input id="size" type="range" min="0" max="10" step="1" value="2" />
-        </label>
-        <p class="help">Side length of random square $A$ (log-spaced stops $3\ldots 32$).</p>
-      </div>
-      <div class="control-actions">
-        <div class="btns">
-          <button id="regen" type="button">Regenerate $A$</button>
-        </div>
-        <p class="help">New Gaussian matrix; recompute factors and product error.</p>
-      </div>
-    </div>
-    <div class="shared">
-      <div class="panel">
-        <h2>Matrix $A$</h2>
-        <canvas id="A" width="160" height="160"></canvas>
-      </div>
-    </div>
-    <div class="panel" id="svdCol">
-      <h2>Factors of $A$</h2>
-      <div class="factor-row">
-        <div class="factor"><span>Output $U$</span><canvas id="svdU" width="100" height="100"></canvas></div>
-        <div class="factor"><span>Stretches</span><canvas id="svdS" width="100" height="80"></canvas></div>
-        <div class="factor"><span>Input $V$</span><canvas id="svdV" width="100" height="100"></canvas></div>
-        <div class="factor"><span>Product</span><canvas id="svdRecon" width="120" height="120"></canvas></div>
-      </div>
-      <p class="note" id="svdErr"></p>
-    </div>
-  </section>
-
-  <section class="theory" aria-label="Name">
-    <h2>What people call this</h2>
-    <p>
-      This factorization is the
-      <a href="https://en.wikipedia.org/wiki/Singular_value_decomposition" target="_blank" rel="noopener noreferrer">singular value decomposition</a>
-      (SVD). The stretch amounts $\sigma_j$ are the <strong>singular values</strong>.
-      Nothing new was added — only a name for the three-piece story you already checked with mirrors.
-    </p>
   </section>
 
   <section class="conclusion" id="conclusion" aria-label="Summary">
     <h2>In short</h2>
     <p>
-      Reflections preserve lengths like rotations. A Householder chooses a mirror so a column lands
-      on an axis — that introduces zeros. Left and right orthogonal maps simplify $A$ until the
-      diagonal holds the stretch amounts; the accumulated maps are the outer factors.
-      Written $A = U\,\mathrm{diag}(\sigma)\,V^{\top}$, that package is the SVD.
+      Reflections preserve lengths like rotations. A Householder chooses a mirror so a column
+      lands on an axis — that introduces zeros. Left and right orthogonal maps can thin a matrix
+      until the leftover diagonal holds the stretch amounts.
     </p>
     <p class="next-chapter">
-      Next you can keep only the largest stretches and drop the rest.
+      Next: name that factorization, see how libraries finish it, and keep only the largest
+      stretches.
       <a href="./truncate.html">Continue →</a>
     </p>
   </section>

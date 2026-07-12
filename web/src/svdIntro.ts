@@ -2,7 +2,6 @@ import "./style.css";
 import { chapterNav } from "./chapterNav";
 import { mountPage } from "./mountPage";
 import pageHtml from "./pages/svdIntro.html?raw";
-import { classicalSvd, type SvdResult } from "./classicalSvd";
 import { mountAngleDial } from "./angleDial";
 import {
   applyLeft,
@@ -20,18 +19,8 @@ import {
 } from "./householder2d";
 import { prepareHiDpiCanvas } from "./hiDpiCanvas";
 import { frameFromMatrix } from "./svdGeometry2d";
-import {
-  type Matrix,
-  randomNormal,
-  reconstruct,
-  maxAbs,
-  frobeniusSq,
-  sub,
-  get,
-  fromNested,
-  copy,
-} from "./matrix";
-import { drawHeatmap, drawSigmaBars } from "./viz";
+import { type Matrix, get, fromNested, copy, randomNormal, maxAbs } from "./matrix";
+import { drawHeatmap } from "./viz";
 
 declare global {
   interface Window {
@@ -127,16 +116,6 @@ const el = {
   stepMatrix: app.querySelector<HTMLElement>("#stepMatrix")!,
   stepIn: app.querySelector<HTMLCanvasElement>("#stepIn")!,
   stepOut: app.querySelector<HTMLCanvasElement>("#stepOut")!,
-
-  size: app.querySelector<HTMLInputElement>("#size")!,
-  sizeVal: app.querySelector<HTMLElement>("#sizeVal")!,
-  regen: app.querySelector<HTMLButtonElement>("#regen")!,
-  A: app.querySelector<HTMLCanvasElement>("#A")!,
-  svdU: app.querySelector<HTMLCanvasElement>("#svdU")!,
-  svdS: app.querySelector<HTMLCanvasElement>("#svdS")!,
-  svdV: app.querySelector<HTMLCanvasElement>("#svdV")!,
-  svdRecon: app.querySelector<HTMLCanvasElement>("#svdRecon")!,
-  svdErr: app.querySelector<HTMLParagraphElement>("#svdErr")!,
 };
 
 /* ── Canvas helpers ────────────────────────────────────────────────────── */
@@ -365,10 +344,6 @@ function fmtSigned(x: number, d = 3): string {
 
 function fmtPair(x: number, y: number, d = 3): string {
   return `(${fmtSigned(x, d)}, ${fmtSigned(y, d)})`;
-}
-
-function clamp(x: number, lo: number, hi: number): number {
-  return Math.max(lo, Math.min(hi, x));
 }
 
 /* ── Build reflection operator ─────────────────────────────────────────── */
@@ -783,7 +758,7 @@ function fmtMat2(M: Matrix): string {
 function resetSteps(): void {
   stepM = copy(demoMatrix2());
   stepPhase = "start";
-  el.stepHelp.textContent = "Start from the demo 2×2. Apply left H, then right G.";
+  el.stepHelp.textContent = "Start from the demo 2×2. Apply left H, then right R.";
   el.stepLeft.disabled = false;
   el.stepRight.disabled = true;
   paintSteps();
@@ -839,7 +814,7 @@ function paintSteps(): void {
       ? "Current $A$"
       : stepPhase === "left"
         ? "After left $H$"
-        : "After left $H$ and right $G$";
+        : "After left $H$ and right $R$";
   el.stepMatrix.innerHTML = `${phaseLabel}: ${fmtMat2(stepM)}`;
 }
 
@@ -848,7 +823,7 @@ function doStepLeft(): void {
   const { H } = householderAimToE1(get(stepM, 0, 0), get(stepM, 1, 0));
   stepM = applyLeft(H, stepM);
   stepPhase = "left";
-  el.stepHelp.textContent = "Column 1 on the axis. Next: right Givens to zero the (1,2) entry.";
+  el.stepHelp.textContent = "Column 1 on the axis. Next: right rotation to zero the (1,2) entry.";
   el.stepLeft.disabled = true;
   el.stepRight.disabled = false;
   paintSteps();
@@ -865,49 +840,6 @@ function doStepRight(): void {
   el.stepRight.disabled = true;
   paintSteps();
   void window.MathJax?.typesetPromise?.([el.stepMatrix]);
-}
-
-/* ── Any-size SVD heatmaps ─────────────────────────────────────────────── */
-
-const SIZE_STOPS = [3, 4, 5, 6, 8, 10, 12, 16, 20, 24, 32];
-
-let A: Matrix;
-let svd: SvdResult;
-let svdReconMat: Matrix;
-let sharedScale = 1;
-let sigmaScale = 1;
-
-function sizeFromSlider(): number {
-  const i = clamp(Math.round(Number(el.size.value) || 0), 0, SIZE_STOPS.length - 1);
-  el.size.value = String(i);
-  return SIZE_STOPS[i];
-}
-
-function syncSliderLabels(): void {
-  el.sizeVal.textContent = String(sizeFromSlider());
-}
-
-function recompute(newA: boolean): void {
-  const n = sizeFromSlider();
-  syncSliderLabels();
-  if (newA || !A || A.rows !== n) {
-    A = randomNormal(n, n, 1);
-  }
-  svd = classicalSvd(A, n);
-  svdReconMat = reconstruct(svd.U, svd.sigma, svd.V);
-  sharedScale = Math.max(maxAbs(A), maxAbs(svdReconMat), 1e-6);
-  sigmaScale = Math.max(...svd.sigma, 1e-6);
-  paintSvd();
-}
-
-function paintSvd(): void {
-  drawHeatmap(el.A, A, sharedScale);
-  drawHeatmap(el.svdU, svd.U);
-  drawHeatmap(el.svdV, svd.V);
-  drawSigmaBars(el.svdS, svd.sigma, sigmaScale);
-  drawHeatmap(el.svdRecon, svdReconMat, sharedScale);
-  const err = frobeniusSq(sub(A, svdReconMat));
-  el.svdErr.textContent = `‖A − product‖_F² = ${err.toExponential(3)}`;
 }
 
 /* ── Master paint + listeners ──────────────────────────────────────────── */
@@ -958,7 +890,6 @@ function paintAll(): void {
   paintHH();
   paintEllipse();
   paintSteps();
-  paintSvd();
 }
 
 el.buildProbeLen.addEventListener("input", paintBuild);
@@ -979,13 +910,8 @@ el.stepLeft.addEventListener("click", doStepLeft);
 el.stepRight.addEventListener("click", doStepRight);
 el.stepReset.addEventListener("click", resetSteps);
 
-el.regen.addEventListener("click", () => recompute(true));
-el.size.addEventListener("input", () => recompute(true));
-
 regenHH();
 resetSteps();
-syncSliderLabels();
-recompute(true);
 {
   const [ax, ay] = aimVector();
   resetHuntAwayFromAnswer(householderAimToE1(ax, ay).mirrorAngleDeg);

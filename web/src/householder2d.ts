@@ -13,7 +13,7 @@ import {
 
 /**
  * Unit normal perpendicular to a mirror line at `lineAngleDeg` (degrees from +x).
- * Same convention as the mirror-angle sliders on the Factors chapter.
+ * Same convention as the mirror-angle sliders on the Reflections chapter.
  */
 export function normalFromLineAngle(lineAngleDeg: number): [number, number] {
   const nAng = ((lineAngleDeg + 90) * Math.PI) / 180;

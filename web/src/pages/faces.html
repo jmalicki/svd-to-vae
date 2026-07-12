@@ -1,0 +1,139 @@
+  <header>
+    {{CHAPTER_NAV}}
+    <h1>Squeezing a face through a few numbers</h1>
+    <p class="repo">
+      <a href="https://github.com/jmalicki/svd-to-vae" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
+    </p>
+    <p class="lede">
+      On the
+      <a href="./truncate.html">previous page</a>,
+      a
+      <a href="https://en.wikipedia.org/wiki/Low-rank_approximation" target="_blank" rel="noopener noreferrer">truncated SVD</a>
+      was a way to <strong>compress</strong> a matrix: keep only the top $k$ pieces, throw the rest away,
+      and rebuild an approximation. Same $k$ idea here — but the “matrix” is a stack of face photos,
+      and the approximation is a picture you can look at. A face is thousands of pixels; we ask how
+      small $k$ can be before you stop recognizing <em>this</em> person.
+    </p>
+  </header>
+
+  <section class="theory" aria-label="Plain story">
+    <h2>From truncated SVD to a face</h2>
+    <ol class="theory-steps">
+      <li>
+        <p>
+          <strong>Compression means “keep $k$, discard the rest.”</strong>
+          Truncated SVD finds the best way (in a least-squares sense) to store each example as
+          $k$ numbers plus a shared decoder. Full data → thin middle of width $k$ → rebuilt copy.
+          That thin middle is the bottleneck. Small $k$ = aggressive compression (blurrier /
+          more generic). Large $k$ = milder compression (closer to the original).
+        </p>
+      </li>
+      <li>
+        <p>
+          <strong>Line the faces up first</strong> (so compression isn’t wasted on “where is the eye?”).
+          Raw photos have features in different places; compressing them as-is smears an eye onto a
+          cheek. We mark the same spots on every face and gently stretch each photo so those spots
+          land on the same places — the “warp.” Still a full-resolution picture, just lined up.
+          Only the SVD step that follows is the actual compression.
+        </p>
+      </li>
+      <li>
+        <p>
+          <strong>Rebuild</strong> means paint a picture from those $k$ numbers.
+          Left = lined-up original. Middle = truncated-SVD reconstruction (rank $k$).
+          Right = $k=0$: nothing kept, just the average face — maximum compression, no identity.
+        </p>
+      </li>
+    </ol>
+    <p class="theory-note">
+      Drag $k$ below: you are literally changing the truncation rank. Names like Procrustes and
+      Delaunay are in the <a href="#appendix">appendix</a>.
+    </p>
+  </section>
+
+  <section class="panel" aria-label="Pick a face">
+    <div class="panel-head">
+      <h2>Pick a face</h2>
+      <span id="loadStatus" class="muted">Loading…</span>
+    </div>
+    <p class="hint">
+      Click someone below. Then move $k$: watch the middle picture go from “generic human” toward
+      the person on the left.
+    </p>
+    <div id="filmstrip" class="filmstrip selectable" role="list"></div>
+  </section>
+
+  <section class="panel demo-hero" aria-label="Bottleneck demo">
+    <h2>How many numbers does this face need?</h2>
+    <div class="compare-row" id="compareRow">
+      <figure>
+        <canvas id="cvOrig" width="64" height="64"></canvas>
+        <figcaption>Lined-up original<br /><span class="cap-sub">full picture</span></figcaption>
+      </figure>
+      <div class="compare-arrow" aria-hidden="true">
+        <span class="arrow-label">keep only $k$<br />numbers</span>
+        <span class="arrow-glyph">→</span>
+      </div>
+      <figure>
+        <canvas id="cvRecon" width="64" height="64"></canvas>
+        <figcaption>Rebuilt from $k$ numbers<br /><span class="cap-sub" id="reconCap">$k$ numbers</span></figcaption>
+      </figure>
+      <div class="compare-arrow" aria-hidden="true">
+        <span class="arrow-label">keep nothing</span>
+        <span class="arrow-glyph">→</span>
+      </div>
+      <figure>
+        <canvas id="cvMean" width="64" height="64"></canvas>
+        <figcaption>Average of everyone<br /><span class="cap-sub">$k = 0$</span></figcaption>
+      </figure>
+    </div>
+
+    <div class="controls face-controls">
+      <label>
+        How many numbers ($k$)
+        <input id="rank" type="range" min="0" max="30" step="1" value="8" disabled />
+        <span id="rankVal" class="val">8</span>
+      </label>
+    </div>
+    <p class="demo-callout" id="kExplain">
+      Loading…
+    </p>
+
+    <h3 class="subhead">Those $k$ numbers, as bars</h3>
+    <p class="hint">
+      Each bar is one of the numbers in the short list for this face. Blue bars are the ones you are
+      keeping. Gray bars are thrown away at this $k$ — that is the squeeze.
+    </p>
+    <canvas id="codeBars" class="code-bars" width="640" height="120" aria-label="Bottleneck coefficients"></canvas>
+  </section>
+
+  <section class="theory appendix" id="appendix" aria-label="Appendix">
+    <h2>Appendix — names for the curious</h2>
+    <ul class="appendix-list">
+      <li>
+        <strong>Warp / alignment.</strong>
+        We use landmark
+        <a href="https://en.wikipedia.org/wiki/Procrustes_analysis" target="_blank" rel="noopener noreferrer">Procrustes</a>
+        alignment, then a piecewise-affine warp on a
+        <a href="https://en.wikipedia.org/wiki/Delaunay_triangulation" target="_blank" rel="noopener noreferrer">Delaunay</a>
+        mesh (<code>delaunator</code>) so every face shares one mean shape. The warp does
+        <em>not</em> reduce dimension; it only changes coordinates.
+      </li>
+      <li>
+        <strong>Bottleneck / rebuild.</strong>
+        Same story as truncated SVD on the previous page: keep rank $k$, discard the rest, decode.
+        Here the matrix columns are lined-up face images; the middle panel is $\hat x$ from those
+        $k$ coefficients (<code>ml-matrix</code> SVD).
+      </li>
+      <li>
+        <strong>Data.</strong>
+        <a href="http://www2.imm.dtu.dk/pubdb/pubs/3160-full.html" target="_blank" rel="noopener noreferrer">IMM Face Database</a>
+        — full set of 240 landmarked faces; free for education/research; cite Stegmann et al. (FAME, IEEE TMI 2003).
+      </li>
+    </ul>
+  </section>
+
+  <footer class="chapter-footer">
+    <a href="./truncate.html">← Back: truncated SVD</a>
+    <a href="./gradient.html">Next →</a>
+  </footer>

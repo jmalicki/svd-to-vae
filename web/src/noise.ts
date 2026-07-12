@@ -1,5 +1,7 @@
 import "./style.css";
 import { chapterNav } from "./chapterNav";
+import { mountPage } from "./mountPage";
+import pageHtml from "./pages/noise.html?raw";
 import {
   FACE_SIZE,
   buildFaceModel,
@@ -22,94 +24,12 @@ declare global {
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 
-app.innerHTML = `
-  <header>
-    ${chapterNav({
-      current: 6,
-      prev: { href: "./gradient.html", label: "← Gradient" },
-    })}
-    <h1>Noise in the bottleneck</h1>
-    <p class="repo">
-      <a href="https://github.com/jmalicki/svd-to-vae" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
-    </p>
-    <p class="lede">
-      On the
-      <a href="./faces.html">faces page</a>,
-      each picture was squeezed through $k$ numbers $z$ and decoded again — that was compression.
-      Now keep those $k$ numbers, but <strong>jiggle them</strong>:
-      $\\tilde z = z + \\tau\\varepsilon$.
-      Decoding $\\tilde z$ invents a nearby face. $\\tau=0$ is the exact reconstruction; bigger $\\tau$ wanders farther.
-    </p>
-  </header>
-
-  <section class="panel" aria-label="Pick a face">
-    <div class="panel-head">
-      <h2>Start from one real face</h2>
-      <span id="loadStatus" class="muted">Loading…</span>
-    </div>
-    <p class="hint">Click a face. Its bottleneck code $z$ is the center of the noise cloud.</p>
-    <div id="filmstrip" class="filmstrip selectable" role="list"></div>
-  </section>
-
-  <section class="panel demo-hero" aria-label="Noise demo">
-    <h2>What the noise does</h2>
-    <div class="compare-row noise-row">
-      <figure>
-        <canvas id="cvExact" width="64" height="64"></canvas>
-        <figcaption>Exact decode<br /><span class="cap-sub">$\\tau = 0$ (same $z$)</span></figcaption>
-      </figure>
-      <div class="compare-arrow" aria-hidden="true">
-        <span class="arrow-label">add $\\tau\\varepsilon$</span>
-        <span class="arrow-glyph">→</span>
-      </div>
-      <div id="noiseRow" class="noise-variants" role="list"></div>
-    </div>
-
-    <div class="controls face-controls">
-      <label>
-        Bottleneck $k$ (same idea as faces)
-        <input id="rank" type="range" min="2" max="30" step="1" value="12" disabled />
-        <span id="rankVal" class="val">12</span>
-      </label>
-      <label>
-        Noise amount $\\tau$
-        <input id="tau" type="range" min="0" max="1.5" step="0.05" value="0.4" disabled />
-        <span id="tauVal" class="val">0.40</span>
-      </label>
-    </div>
-    <p class="demo-callout" id="tauExplain">Loading…</p>
-    <div class="panel-head">
-      <h3 class="subhead" style="margin:0">Resample the same $z$ with fresh $\\varepsilon$</h3>
-      <button type="button" id="resample" class="primary" disabled>Resample noise</button>
-    </div>
-  </section>
-
-  <section class="panel" aria-label="Random gallery">
-    <div class="panel-head">
-      <h2>Random nearby faces</h2>
-      <button type="button" id="resampleGallery" class="primary" disabled>Resample gallery</button>
-    </div>
-    <p class="hint">
-      Each tile: pick a random training $z$, add noise, decode. Same warp-aligned SVD as the
-      <a href="./faces.html">faces page</a>.
-    </p>
-    <div id="gallery" class="face-gallery" role="list"></div>
-  </section>
-
-  <section class="panel" aria-label="Pixel foil">
-    <h2>Foil: same noise, no warp</h2>
-    <p class="hint">
-      Identical $k$ and $\\tau$ on loose bbox crops (no mean-shape warp). Draws go foggy — eigenfaces without correspondence.
-    </p>
-    <div id="foilGallery" class="face-gallery foil" role="list"></div>
-  </section>
-
-  <footer class="chapter-footer">
-    <a href="./gradient.html">← Back: gradient</a>
-    <a href="./faces.html">Faces demo</a>
-    <a href="./">Home: matrix geometry</a>
-  </footer>
-`;
+mountPage(app, pageHtml, {
+  nav: chapterNav({
+    current: 6,
+    prev: { href: "./gradient.html", label: "← Gradient" },
+  }),
+});
 
 const el = {
   loadStatus: app.querySelector<HTMLSpanElement>("#loadStatus")!,

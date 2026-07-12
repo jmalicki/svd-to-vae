@@ -3,7 +3,7 @@
 export type NavLink = { href: string; label: string };
 
 const STRIP: { href: string; label: string; n: 1 | 2 | 3 | 4 | 5 }[] = [
-  { n: 1, href: "./", label: "Ellipse" },
+  { n: 1, href: "./", label: "Matrix" },
   { n: 2, href: "./truncate.html", label: "Truncate" },
   { n: 3, href: "./faces.html", label: "Faces" },
   { n: 4, href: "./gradient.html", label: "Gradient" },

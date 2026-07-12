@@ -23,7 +23,7 @@ app.innerHTML = `
   <header>
     ${chapterNav({
       current: 2,
-      prev: { href: "./", label: "← Ellipse" },
+      prev: { href: "./", label: "← Matrix" },
       next: { href: "./faces.html", label: "Next →" },
     })}
     <h1>A matrix from its top k pieces</h1>
@@ -31,7 +31,8 @@ app.innerHTML = `
       <a href="https://github.com/jmalicki/svd-to-vae" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
     </p>
     <p class="lede">
-      You just saw the SVD of a $2\\times 2$ map: singular values stretch a circle into an ellipse.
+      You just saw how to read a $2\\times 2$ matrix as a linear transformation:
+      singular values are the stretch amounts in the unit-circle picture.
       The same factorization works for any matrix — $A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$ with
       <a href="https://en.wikipedia.org/wiki/Orthonormality" target="_blank" rel="noopener noreferrer">orthonormal</a>
       $U$, $V$ and nonnegative $\\sigma$.

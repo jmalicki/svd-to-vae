@@ -24,41 +24,45 @@ const EXAMPLE_A = TILTED_EXAMPLE_A;
 app.innerHTML = `
   <header>
     ${chapterNav({ current: 1, next: { href: "./truncate.html", label: "Next →" } })}
-    <h1>A matrix turns a circle into an ellipse</h1>
+    <h1>What a matrix does as a linear transformation</h1>
     <p class="repo">
       <a href="https://github.com/jmalicki/svd-to-vae" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
     </p>
     <p class="lede">
-      Pick a $2\\times 2$ matrix $A$. Send every vector of length $1$ through $Ax$.
-      The tips no longer form a circle — they form an <strong>ellipse</strong>.
-      This page unpacks that one fact.
+      Think of a $2\\times 2$ matrix $A$ as a <strong>linear transformation</strong>: it sends each vector $x$
+      to $Ax$. To see what that transformation does — how much it stretches, and in which directions —
+      we use a simple picture: send every length-$1$ vector through $A$. Their tips always form an
+      <strong>ellipse</strong>. The ellipse is a pedagogical tool, not the object of study;
+      from it we will read off the singular values and the SVD.
     </p>
   </header>
 
   <section class="theory" aria-label="Setup">
-    <h2>Setup</h2>
+    <h2>The picture</h2>
     <ol class="theory-steps">
       <li>
         <p>
-          <strong>Before / after.</strong>
-          Left: unit circle (every tip has length $1$). Right: the same tips after multiplying by $A$.
+          <strong>Unit circle in, ellipse out.</strong>
+          Left: every tip has length $1$. Right: the same tips after $A$.
+          Whatever $A$ you pick (nonsingular), you get some ellipse — never a starfish.
         </p>
       </li>
       <li>
         <p>
-          <strong>Some directions stretch more than others.</strong>
-          The longest and shortest stretches on that ellipse will get names in a moment —
-          after you can see them.
+          <strong>Read stretches from the ellipse.</strong>
+          The long and short axis lengths tell you the strongest and weakest stretch $A$ can apply
+          to a unit vector. Those lengths will get names once you can see them.
         </p>
       </li>
     </ol>
   </section>
 
   <section class="worked-example" aria-label="Worked example">
-    <h2>One concrete example (tilted)</h2>
+    <h2>One concrete matrix (tilted)</h2>
     <p>
-      Here is a matrix that is <em>not</em> diagonal — so the ellipse will not line up with the axes,
-      and the stretch lengths will <em>not</em> equal the numbers on the diagonal of $A$.
+      Start with a matrix that is <em>not</em> diagonal. The ellipse will tilt, and the stretch
+      lengths will <em>not</em> match the numbers sitting on the diagonal of $A$ — which is why
+      we need a better description than “look at the entries.”
     </p>
     <div class="math">
       $$A = \\begin{bmatrix} 1.5 & 1.0 \\\\ 0.2 & 1.2 \\end{bmatrix}$$
@@ -86,9 +90,9 @@ app.innerHTML = `
   <section class="demo-block" aria-label="Analysis playground">
     <h2>Try your own matrix</h2>
     <p class="demo-intro">
-      Edit the four entries of $A$. Watch the ellipse, and read off the longest and shortest
-      stretches over the circle. Those two lengths are the <strong>singular values</strong>
-      $\\sigma_1 \\ge \\sigma_2$.
+      Edit the entries of $A$. Use the ellipse as a readout: the longest and shortest stretches
+      over the unit circle are the <strong>singular values</strong> $\\sigma_1 \\ge \\sigma_2$ —
+      how hard $A$ pulls in its strongest and weakest directions.
     </p>
 
     <div class="controls">
@@ -147,10 +151,10 @@ app.innerHTML = `
   </section>
 
   <section class="movie-block" aria-label="Rotate stretch rotate">
-    <h2>How $A$ does it: rotate, stretch, rotate</h2>
+    <h2>How $A$ factors: rotate, stretch, rotate</h2>
     <p class="demo-intro">
-      Any $2\\times 2$ $A$ can be written as three easy steps applied right-to-left.
-      The pictures below use the SVD of <em>your</em> matrix from the section above.
+      The ellipse picture suggests a clean description of $A$ itself: re-aim, stretch by
+      $\\sigma_1$ and $\\sigma_2$, re-aim again. The panels use the SVD of <em>your</em> matrix above.
     </p>
     <div class="movie-row" id="movieRow">
       <div class="panel movie-panel">
@@ -250,9 +254,9 @@ app.innerHTML = `
   <section class="appendix" id="appendix" aria-label="Takeaways">
     <h2>Takeaways</h2>
     <ul class="example-bullets">
-      <li>$A$ sends the unit circle to an ellipse.</li>
-      <li>$\\sigma_1$ and $\\sigma_2$ are that ellipse’s long and short axis lengths — not (in general) the diagonal of $A$.</li>
-      <li>Any $A$ is rotate → stretch → rotate: $A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$.</li>
+      <li>To understand $A$ as a linear transformation, watch what it does to the unit circle — the image is an ellipse.</li>
+      <li>$\\sigma_1$ and $\\sigma_2$ are the longest and shortest stretches of unit vectors (the ellipse axes), not (in general) the diagonal of $A$.</li>
+      <li>That yields a factorization: rotate → stretch → rotate, $A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$.</li>
     </ul>
     <p>
       <a href="./truncate.html">Next →</a>

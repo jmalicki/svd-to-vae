@@ -1,6 +1,6 @@
-# IMM Face Database subset
+# IMM Face Database (full)
 
-40 neutral frontal images (`*-1*`) with ASF landmarks from the
+240 annotated images (40 subjects × 6) with ASF landmarks from the
 [IMM Face Database](http://www2.imm.dtu.dk/pubdb/pubs/3160-full.html).
 
 Free for education and research; cite:

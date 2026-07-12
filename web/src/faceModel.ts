@@ -104,10 +104,14 @@ export async function loadImmExamples(
   baseUrl: string,
   files: string[],
   size = FACE_SIZE,
+  onProgress?: (msg: string) => void,
 ): Promise<{ examples: FaceExample[] }> {
   const loaded: { id: string; img: ImageData; shapePx: Shape }[] = [];
+  const n = files.length;
 
-  for (const id of files) {
+  for (let i = 0; i < files.length; i++) {
+    const id = files[i]!;
+    onProgress?.(`Loading ${i + 1}/${n}…`);
     const [imgEl, asfText] = await Promise.all([
       loadImage(`${baseUrl}/${id}.jpg`),
       fetch(`${baseUrl}/${id}.asf`).then((r) => {
@@ -120,6 +124,7 @@ export async function loadImmExamples(
     loaded.push({ id, img, shapePx });
   }
 
+  onProgress?.(`Aligning ${n} shapes…`);
   let mean = meanShape(loaded.map((e) => e.shapePx));
   for (let iter = 0; iter < 4; iter++) {
     mean = meanShape(loaded.map((e) => procrustesAlign(e.shapePx, mean)));
@@ -130,12 +135,16 @@ export async function loadImmExamples(
   const triangles = triangulate(meanOnCanvas);
   const examples: FaceExample[] = [];
 
-  for (const { id, img, shapePx } of loaded) {
+  for (let i = 0; i < loaded.length; i++) {
+    const { id, img, shapePx } = loaded[i]!;
+    onProgress?.(`Warping ${i + 1}/${n}…`);
     const aligned = procrustesAlign(shapePx, mean);
     const shape = applyCanvasFit(aligned, fit);
     const appearance = warpPiecewiseAffine(img, shapePx, meanOnCanvas, triangles, size);
     const thumb = bboxThumb(img, shapePx, size);
     examples.push({ id, thumb, appearance, shape });
+    // Yield so the status text can paint.
+    if (i % 4 === 3) await new Promise((r) => setTimeout(r, 0));
   }
 
   return { examples };

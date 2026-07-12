@@ -6,12 +6,10 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   root: ".",
-  // CI sets VITE_BASE=/svd-grad/ for GitHub Pages project URLs.
   base: process.env.VITE_BASE || "/",
   server: { port: 5173 },
   resolve: {
     alias: {
-      // npm ESM entry pulls Node createRequire/fs — use browser build instead.
       "js-pytorch": path.resolve(root, "src/vendor/js-pytorch-browser.js"),
     },
   },
@@ -19,8 +17,9 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: path.resolve(root, "index.html"),
-        chapter2: path.resolve(root, "chapter2.html"),
-        chapter3: path.resolve(root, "chapter3.html"),
+        faces: path.resolve(root, "faces.html"),
+        gradient: path.resolve(root, "gradient.html"),
+        noise: path.resolve(root, "noise.html"),
       },
     },
   },

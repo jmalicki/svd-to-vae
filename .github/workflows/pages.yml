@@ -31,8 +31,8 @@ jobs:
       - run: npm test
       - run: npm run build
         env:
-          # Project site: https://jmalicki.github.io/svd-grad/
-          VITE_BASE: /svd-grad/
+          # Project site: https://jmalicki.github.io/svd-to-vae/
+          VITE_BASE: /svd-to-vae/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: web/dist

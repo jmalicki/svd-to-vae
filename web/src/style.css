@@ -578,6 +578,41 @@ canvas {
   line-height: 1.4;
 }
 
+.chapter-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.15rem;
+  margin: 0.15rem 0 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.chapter-strip a {
+  color: var(--muted);
+  text-decoration: none;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+}
+
+.chapter-strip a:hover {
+  color: var(--accent);
+  background: rgba(0, 114, 178, 0.08);
+}
+
+.chapter-strip a[aria-current="page"] {
+  color: var(--accent);
+  background: rgba(0, 114, 178, 0.12);
+}
+
+.chapter-strip .strip-sep {
+  color: var(--line);
+  user-select: none;
+}
+
+/* --- ch1 --- */
+
 .chapter-nav {
   margin: 0;
   font-size: 0.9rem;

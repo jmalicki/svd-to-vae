@@ -1,16 +1,23 @@
-# SVD via Gradient Descent
+# SVD to VAE
 
-Interactive demo: recover a rank-`k` factorization by SGD on mean squared
-reconstruction error (charts report Frobenius²), then **retract** with thin QR
-after every step so `UᵀU = I` and `VᵀV = I` (Stiefel), with Armijo backtracking
-on the retract so steps do not increase loss. Compare live to truncated classical
-SVD on the same matrix. Step size is Adam-like but global: one scalar EMA of
-mean(`g²`) sets a shared `η_t` (no per-entry moment vectors).
+Interactive tour from truncated SVD toward generative models — without naming
+VAE / ELBO / KL until a later chapter.
 
-## Web demo
-
-Live: [https://jmalicki.github.io/svd-grad/](https://jmalicki.github.io/svd-grad/)
+Live: [https://jmalicki.github.io/svd-to-vae/](https://jmalicki.github.io/svd-to-vae/)
 (built and deployed from `main` by GitHub Actions).
+
+| Chapter | Page | Idea |
+| --- | --- | --- |
+| 1 | [`/`](https://jmalicki.github.io/svd-to-vae/) | Truncated SVD on a matrix |
+| 2 | [`/faces.html`](https://jmalicki.github.io/svd-to-vae/faces.html) | Face compression (IMM + warp + appearance SVD) |
+| 3 | [`/gradient.html`](https://jmalicki.github.io/svd-to-vae/gradient.html) | Recover factors by gradient descent |
+| 4 | [`/noise.html`](https://jmalicki.github.io/svd-to-vae/noise.html) | Noise in the bottleneck codes |
+
+The standalone GD demo that started this work still lives at
+[svd-grad](https://jmalicki.github.io/svd-grad/)
+([repo](https://github.com/jmalicki/svd-grad)).
+
+## Local
 
 ```bash
 cd web
@@ -20,52 +27,31 @@ npm run dev
 
 `predev` / `prebuild` run `npm run gen:ringing`, which trains floored global-RMS + Armijo vs unfloored global-RMS (no line search), plots $\\|\\hat A_{\\mathrm{svd}}-\\hat A_{\\mathrm{gd}}\\|_F^{2}$, writes `public/ringing-floor.svg`, and **fails the build if the unfloored curve does not ring or the floored curve fails to stay near the Eckart–Young gap**.
 
-Unit tests (Vitest):
-
 ```bash
 cd web && npm test
 ```
-The app imports a **vendored browser build** of js-pytorch (`web/src/vendor/js-pytorch-browser.js`) so Vite does not pull the Node `createRequire` entry. GPU mode uses GPU.js / WebGL from that bundle. Refresh after upgrading js-pytorch with:
+
+The app imports a **vendored browser build** of js-pytorch (`web/src/vendor/js-pytorch-browser.js`). Refresh after upgrading js-pytorch with:
 
 ```bash
 cd web && bash scripts/vendor-js-pytorch.sh
 ```
 
-Open the printed local URL. Controls (all numeric params are **sliders**):
+## Face data
 
-- **Size n** / **Rank k** — matrix shape and factorization rank
-- **Base LR**, **steps/frame** — base step size `η₀` for global-RMS SGD (`v†=max(v̂,ḡ²,v_fp)`, `η_t=η₀/(√v†+√v_fp)`) and animation speed
-- **Device** — CPU or GPU (GPU.js over **WebGL**, not WebGPU)
-- Play / Pause / Reset
-
-The GD column heatmaps animate each frame; the classical SVD column stays fixed until you change `A`, `n`, or `k`. The loss chart shows reconstruction vs the truncated-SVD floor (QR keeps factors orthonormal by construction).
-
-Global RMS SGD instead of Adam: same adaptive second-moment idea, but one scalar `v` shared by all parameters — Adam’s per-entry buffers fight hard QR retraction.
-
-### Deploy note
-
-`js-pytorch` depends on `@eduardoleao052/gpu`. For the browser, Vite resolves that package to `gpu-browser.js` (pure JS / WebGL). Native Node `gl` may sit in `node_modules` but is not what the web bundle uses. Prefer `npm install --ignore-scripts` if the native addon fails to build.
-
-Small matrices often train faster on CPU; GPU is available for completeness.
+Chapters 2 and 4 use the [IMM Face Database](https://www2.imm.dtu.dk/~aam/datasets/datasets.html)
+(Stegmann / FAME; education & research). Cite accordingly. Bundled under
+`web/public/imm/` with landmarks (`.asf`) and images.
 
 ## Python twin
 
-Same algorithm against real PyTorch (CPU):
+Same GD algorithm against real PyTorch (CPU), from the gradient chapter:
 
 ```bash
 cd python
 pip install -r requirements.txt
 python train.py --n 5 --rank 3 --steps 800
 ```
-
-Compares final reconstruction error to `torch.linalg.svd` truncated to rank `k`.
-
-## Notes
-
-- Factors match SVD only up to **sign flips** and **column order**.
-- Classical SVD in the browser uses [`ml-matrix`](https://github.com/mljs/matrix) (`SingularValueDecomposition`). js-pytorch has no `linalg.svd`.
-- $\\sigma = \\mathrm{softplus}(\\mathrm{raw})$ with $\\mathrm{softplus}(x)=\\ln(1+e^{x})$ keeps singular values positive while optimizing an unconstrained vector `raw`; column scaling `U * σ` keeps `σ` in the autograd graph.
-- Retraction is Euclidean gradient of reconstruction + thin QR (modified Gram–Schmidt in the browser; `torch.linalg.qr` in Python)—not a full Riemannian tangent-space projection. Background: [Stiefel manifold](https://en.wikipedia.org/wiki/Stiefel_manifold), [QR](https://en.wikipedia.org/wiki/QR_decomposition), [exponential map](https://en.wikipedia.org/wiki/Exponential_map_(Riemannian_geometry)), Absil–Mahony–Sepulchre [*Optimization Algorithms on Matrix Manifolds*](https://press.princeton.edu/books/hardcover/9780691132983/optimization-algorithms-on-matrix-manifolds), [Absil & Malick (SIAM J. Optim. 2012)](https://doi.org/10.1137/100802529) ([PDF](https://sites.uclouvain.be/absil/2010-038_retractions/retraction_25PA_UCL-INMA-2010-038-v2.pdf)).
 
 ## License
 

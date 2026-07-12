@@ -5,38 +5,65 @@
       <a href="https://github.com/jmalicki/svd-to-vae" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
     </p>
     <p class="lede">
-      So far the SVD lived on toy matrices. This page is a
-      <strong>real application of the same math</strong>: compress actual face photos with
-      truncated SVD, and watch whether a handful of numbers still look like
-      <em>this</em> person.
+      Time to connect the math to something in the real world. Up to now the SVD acted on toy
+      matrices; here we point the same truncated SVD at a stack of face photos and ask a
+      practical question: can a handful of numbers still look like <em>this</em> person?
     </p>
   </header>
 
   <section class="theory" aria-label="Plain story">
     <h2>From truncated SVD to a face</h2>
     <p>
-      Why bother? A face is thousands of pixels. If the truncated SVD from the
-      <a href="./truncate.html">previous page</a>
-      still works when the matrix entries are <em>pixels</em>, then you can store or send a person
-      as a short list of numbers instead of a whole image — and you can <em>see</em> what that
-      compression costs, because the rebuild is a picture. That is the same recipe as before
-      (keep the top $k$ singular components, discard the rest), aimed at something you already
-      care about recognizing.
+      Faces are a good real-world test for two reasons. First, you already know what “still looks
+      like this person” means — you do not need a formula to judge the result. Second, a photo is
+      thousands of pixels, so if we can store someone as a short list of numbers instead of the
+      whole image, that is genuinely useful.
     </p>
-    <p>
-      Concretely: each lined-up photo becomes one long column of pixel values; about 240 columns
-      make a matrix $X$. Its SVD is unchanged in meaning — shared directions ordered by
-      $\sigma_1 \ge \sigma_2 \ge \cdots$, and for each face a list of coordinates along those
-      directions. <strong>That list is the face’s representation.</strong> Truncating to rank $k$
-      keeps only the first $k$ coordinates and rebuilds
-      $\text{average face} + \sum_{i=1}^{k} c_i\,u_i$. The demo is that reconstruction next to
-      the original — so you can judge with your eyes when the math has kept “enough.”
-    </p>
+    <ol class="theory-steps">
+      <li>
+        <p>
+          <strong>Start from what you already know.</strong>
+          On the
+          <a href="./truncate.html">previous page</a>
+          we took a matrix, wrote it with an SVD, and then <em>truncated</em> it: keep only the
+          top $k$ singular components (the ones with the largest singular values), throw the rest
+          away, and rebuild an approximation. That recipe never cared what the numbers in the
+          matrix meant. They could have been anything.
+        </p>
+      </li>
+      <li>
+        <p>
+          <strong>Now the numbers are pixels.</strong>
+          Take each lined-up face photo and stretch it into one long column of pixel values.
+          Stack about 240 such columns side by side. Call that big matrix $X$. We are about to
+          do the same truncated SVD as before — only now every entry is a brightness in a face.
+        </p>
+      </li>
+      <li>
+        <p>
+          <strong>What the SVD gives you.</strong>
+          Same objects as always: a list of shared directions for the whole stack, ordered by
+          singular value (most important first), and — for each face — a list of coordinates
+          along those directions. Think of the shared directions as reusable “face patterns,”
+          and the coordinates as how much of each pattern this person needs.
+        </p>
+      </li>
+      <li>
+        <p>
+          <strong>That coordinate list is the face’s representation.</strong>
+          Instead of keeping thousands of pixels, we keep those coordinates. Truncating to rank
+          $k$ means keeping only the first $k$ of them (the ones tied to the largest singular
+          values) and rebuilding a picture from just that short list. The middle tile in the
+          demo is exactly that rebuild, sitting next to the original so you can see what was
+          lost.
+        </p>
+      </li>
+    </ol>
     <p class="theory-note">
-      Scrub $k$ to change how many singular components you keep. Full rank ($N-1$) can match
-      the left tile; small $k$ is the interesting squeeze. (We line faces up before the SVD so
-      compression isn’t wasted on “where is the eye?” — warp details in the
-      <a href="#appendix">appendix</a>.)
+      Scrub $k$ below. Large $k$ can match the left tile; small $k$ is the interesting squeeze —
+      when does the rebuild stop looking like this person? (We line faces up before the SVD so
+      early components aren’t wasted on “where is the eye?” — warp details and the rebuild
+      formula live in the <a href="#appendix">appendix</a>.)
     </p>
   </section>
 

@@ -66,18 +66,17 @@ app.innerHTML = `
   <section class="theory" aria-label="Build a reflection">
     <h2>Building a reflection</h2>
     <p>
-      Chapter 1’s rotations keep every length the same and never flip the plane.
-      A <strong>reflection</strong> is the other elementary length-preserving map: it keeps
-      lengths, but sends each point to its twin on the opposite side of a chosen line
-      (the <strong>mirror</strong>). Through the origin, that line is fixed by a single
-      direction — any unit vector $n$ perpendicular to the mirror, called the
-      <strong>normal</strong>. Flip $n$ to $-n$ and you describe the same mirror; what matters
-      is the line $n$ is orthogonal to.
+      Chapter 1 used rotations: multiply by an orthogonal matrix with determinant $+1$,
+      and every length stays the same. A <strong>reflection</strong> is the other standard
+      length-preserving move. Pick a line through the origin — the <strong>mirror</strong> —
+      and send every point to its twin on the other side. Lengths are unchanged, but the
+      plane flips (determinant $-1$).
     </p>
     <p>
-      Once $n$ is chosen, reflecting a vector $x$ is a three-line geometric story.
-      First draw the mirror and its normal. The figure below uses the same slider for all
-      three panels: turn the orange mirror and the green normal $n$ turns with it.
+      A mirror through the origin is completely described by a unit vector $n$ at right
+      angles to it (the <strong>normal</strong>). Turn the slider below: the orange line is
+      the mirror, the green arrow is $n$, and the three panels stay linked. The rest of this
+      section builds the formula for reflecting a vector $x$ across that mirror.
     </p>
     <div class="controls">
       <div class="control-row">
@@ -85,77 +84,75 @@ app.innerHTML = `
           <span class="slider-label">Mirror angle (sets $n$) <strong id="buildAngVal">35°</strong></span>
           <input id="buildAng" type="range" min="-90" max="90" step="1" value="35" />
         </label>
-        <p class="help">One control for the whole construction below.</p>
+        <p class="help">Same $n$ for all three figures.</p>
       </div>
     </div>
     <p class="formula" id="buildFormula" aria-live="polite"></p>
 
     <div class="panel">
-      <h2>1 · Mirror and normal</h2>
+      <h2>1 · The mirror and its normal</h2>
       <p>
-        The orange band is the mirror line through the origin. The green arrow is a unit
-        normal $n$ — length $1$, at right angles to the mirror. Choosing the mirror or
-        choosing $n$ is the same decision: the reflection is completely fixed once you
-        pick either one.
+        Orange is the mirror; green is a unit normal $n$ (so $\\|n\\| = 1$ and $n$ is
+        perpendicular to the mirror). You only need one of these: the line determines $n$
+        up to sign, and $n$ determines the line. Replacing $n$ by $-n$ describes the same
+        reflection.
       </p>
       <canvas id="build1" width="300" height="300" aria-label="Mirror and normal"></canvas>
       <p class="hint">Orange = mirror. Green = $n$. Gray = coordinate axes.</p>
     </div>
 
     <div class="panel">
-      <h2>2 · Split $x$ into parallel and normal pieces</h2>
+      <h2>2 · Decompose $x$ along $n$</h2>
       <p>
-        Take any probe vector $x$ (blue). Drop a perpendicular from its tip onto the mirror.
-        The foot of that perpendicular is the part of $x$ that already lies in the mirror
-        direction — call it $x_{\\|}$. The leftover segment, from that foot out to the tip of
-        $x$, points exactly along $\\pm n$. Its signed length is the scalar $n^{\\top}x$, so the
-        leftover vector is
+        Fix a probe vector $x$ (blue). Project it onto the normal direction: the scalar
+        $n^{\\top}x$ is how far $x$ sits on the $n$-side of the mirror, and the vector
       </p>
       <div class="math">
-        $$x_{n} = (n^{\\top}x)\\,n.$$
+        $$x_{n} = (n^{\\top}x)\\,n$$
       </div>
       <p>
-        Then $x = x_{\\|} + x_{n}$: the blue arrow is the vector sum of the purple
-        (parallel) piece and the green (normal) piece in the figure.
+        is that piece of $x$ (green in the figure). What remains,
+        $x_{\\parallel} = x - x_{n}$, lies in the mirror (purple). So
+        $x = x_{\\parallel} + x_{n}$ — the usual split into a part along $n$ and a part
+        orthogonal to $n$.
       </p>
       <canvas id="build2" width="300" height="300" aria-label="Decompose x"></canvas>
-      <p class="hint">Blue = $x$. Purple = $x_{\\|}$ along the mirror. Green stub = $x_n$ along $n$.</p>
+      <p class="hint">Blue = $x$. Purple = $x_{\\parallel}$. Green = $x_n = (n^{\\top}x)\\,n$.</p>
     </div>
 
     <div class="panel">
-      <h2>3 · Keep the parallel part, reverse the normal part</h2>
+      <h2>3 · Flip the normal piece</h2>
       <p>
-        Reflecting across the mirror means: leave $x_{\\|}$ alone, and send $x_{n}$ to $-x_{n}$.
-        The image is therefore $x_{\\|} - x_{n}$. Substituting $x_{n} = (n^{\\top}x)\\,n$ and
-        $x_{\\|} = x - x_{n}$ gives
+        To reflect, keep the part in the mirror and reverse the part along $n$:
+        $Hx = x_{\\parallel} - x_{n}$. Since $x_{\\parallel} = x - x_{n}$, that is the same as
+        subtracting the normal piece twice:
       </p>
       <div class="math">
-        $$Hx = x_{\\|} - x_{n} = x - 2(n^{\\top}x)\\,n.$$
+        $$Hx = x - 2(n^{\\top}x)\\,n.$$
       </div>
       <p>
-        Geometrically you subtract the normal piece twice: once to cancel it, once to go the
-        same distance to the other side of the mirror. The orange arrow $Hx$ is the reflected
-        tip; the dashed segment shows the jump from $x$ to $Hx$. Lengths match:
+        In the figure, orange is $Hx$. The dashed segment is the jump across the mirror;
+        $x$ and $Hx$ are the same distance from it, on opposite sides. In particular
         $\\|Hx\\| = \\|x\\|$.
       </p>
       <canvas id="build3" width="300" height="300" aria-label="Reflect x to Hx"></canvas>
-      <p class="hint">Blue = $x$. Orange = $Hx$. Dashed = the normal flip.</p>
+      <p class="hint">Blue = $x$. Orange = $Hx$. Dashed = the flip across the mirror.</p>
     </div>
 
     <div class="panel">
-      <h2>4 · Same rule as a matrix</h2>
+      <h2>4 · Write it as a matrix</h2>
       <p>
-        The map $x \\mapsto x - 2(n^{\\top}x)\\,n$ is linear in $x$. Factoring gives the
-        familiar Householder matrix
+        The rule $x \\mapsto x - 2(n^{\\top}x)\\,n$ is linear in $x$. Factoring out $x$ gives
+        the Householder matrix
       </p>
       <div class="math">
         $$H = I - 2nn^{\\top}.$$
       </div>
       <p>
-        Because reflecting twice is the identity, $H^{2} = I$. Because reflections preserve
-        lengths and angles (up to orientation), $H$ is orthogonal: $H^{\\top}H = I$. The flip
-        of orientation shows up as $\\det H = -1$ — unlike the rotations from chapter 1, which
-        had determinant $+1$. From here on, “apply a reflection” means multiply by such an $H$.
+        Reflecting twice undoes itself, so $H^{2} = I$. Lengths (and angles, up to
+        orientation) are preserved, so $H$ is orthogonal: $H^{\\top}H = I$. The orientation
+        flip is $\\det H = -1$, whereas chapter 1’s rotations had $\\det = +1$. From here on,
+        “apply a reflection” means multiply by a matrix of this form.
       </p>
     </div>
   </section>

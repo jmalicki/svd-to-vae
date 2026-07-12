@@ -1181,12 +1181,15 @@ button.primary:not(:disabled):hover {
 .compare-row figure {
   margin: 0;
   text-align: center;
+  flex: 0 0 9.5rem;
+  width: 9.5rem;
 }
 
 .compare-row canvas {
   display: block;
   width: 128px;
   height: 128px;
+  margin: 0 auto;
   image-rendering: pixelated;
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -1199,6 +1202,7 @@ button.primary:not(:disabled):hover {
   font-weight: 600;
   line-height: 1.3;
   color: var(--ink);
+  width: 100%;
 }
 
 .compare-row .cap-sub {
@@ -1206,6 +1210,7 @@ button.primary:not(:disabled):hover {
   font-weight: 400;
   font-size: 0.78rem;
   color: var(--muted);
+  min-height: 2.5em; /* reserve space so k-label edits don’t shift neighbors */
 }
 
 .compare-arrow {

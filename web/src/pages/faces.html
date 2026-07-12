@@ -5,53 +5,38 @@
       <a href="https://github.com/jmalicki/svd-to-vae" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
     </p>
     <p class="lede">
-      On the
-      <a href="./truncate.html">previous page</a>,
-      a
-      <a href="https://en.wikipedia.org/wiki/Low-rank_approximation" target="_blank" rel="noopener noreferrer">truncated SVD</a>
-      compressed a matrix by keeping only the top $k$ pieces. Here that matrix is literal:
-      each lined-up face is one long column of pixel values, and we stack about 240 such columns
-      into one big matrix $X$. The truncated SVD of $X$ finds $k$ shared “face directions” plus,
-      for every person, $k$ numbers that say how much of each direction to mix in. Rebuild those
-      $k$ numbers and you get an approximate picture — same math as before, but now the
-      approximation is a face you can recognize (or fail to).
+      So far the SVD lived on toy matrices. This page is a
+      <strong>real application of the same math</strong>: compress actual face photos with
+      truncated SVD, and watch whether a handful of numbers still look like
+      <em>this</em> person.
     </p>
   </header>
 
   <section class="theory" aria-label="Plain story">
     <h2>From truncated SVD to a face</h2>
-    <ol class="theory-steps">
-      <li>
-        <p>
-          <strong>Same truncation, different matrix.</strong>
-          Before, the entries of $A$ were abstract numbers. Now each column of $X$ is one face
-          (thousands of pixels). Truncated SVD still means: keep only rank $k$, throw the rest away,
-          rebuild. Each face becomes $k$ coefficients plus a shared decoder made from those top
-          pieces. Small $k$ = aggressive compression (more generic). Large $k$ = closer to the original.
-        </p>
-      </li>
-      <li>
-        <p>
-          <strong>Line the faces up first</strong> (so compression isn’t wasted on “where is the eye?”).
-          Raw photos have features in different places; compressing them as-is smears an eye onto a
-          cheek. We mark the same spots on every face and gently stretch each photo so those spots
-          land on the same places — the “warp.” Still a full-resolution picture, just lined up.
-          Only the SVD step that follows is the actual compression.
-        </p>
-      </li>
-      <li>
-        <p>
-          <strong>Rebuild</strong> means paint a picture from those $k$ numbers.
-          Left = lined-up original. Middle = truncated-SVD reconstruction (rank $k$).
-          Right = $k=0$: nothing kept, just the average face — maximum compression, no identity.
-        </p>
-      </li>
-    </ol>
+    <p>
+      Why bother? A face is thousands of pixels. If the truncated SVD from the
+      <a href="./truncate.html">previous page</a>
+      still works when the matrix entries are <em>pixels</em>, then you can store or send a person
+      as a short list of numbers instead of a whole image — and you can <em>see</em> what that
+      compression costs, because the rebuild is a picture. That is the same recipe as before
+      (keep the top $k$ singular components, discard the rest), aimed at something you already
+      care about recognizing.
+    </p>
+    <p>
+      Concretely: each lined-up photo becomes one long column of pixel values; about 240 columns
+      make a matrix $X$. Its SVD is unchanged in meaning — shared directions ordered by
+      $\sigma_1 \ge \sigma_2 \ge \cdots$, and for each face a list of coordinates along those
+      directions. <strong>That list is the face’s representation.</strong> Truncating to rank $k$
+      keeps only the first $k$ coordinates and rebuilds
+      $\text{average face} + \sum_{i=1}^{k} c_i\,u_i$. The demo is that reconstruction next to
+      the original — so you can judge with your eyes when the math has kept “enough.”
+    </p>
     <p class="theory-note">
-      Drag $k$ below: you are changing the truncation rank. The slider goes up to full rank
-      ($N-1$ for $N$ faces) so the middle can match the left; small $k$ is the interesting
-      compression. Names like Procrustes and Delaunay are in the
-      <a href="#appendix">appendix</a>.
+      Scrub $k$ to change how many singular components you keep. Full rank ($N-1$) can match
+      the left tile; small $k$ is the interesting squeeze. (We line faces up before the SVD so
+      compression isn’t wasted on “where is the eye?” — warp details in the
+      <a href="#appendix">appendix</a>.)
     </p>
   </section>
 
@@ -106,40 +91,63 @@
 
     <div class="controls face-controls">
       <label>
-        How many numbers ($k$)
-        <input id="rank" type="range" min="0" max="239" step="1" value="8" disabled />
-        <span id="rankVal" class="val">8</span>
+        <span class="face-control-title">Truncation rank $k$ (keep top $k$ singular components)</span>
+        <span class="face-control-track">
+          <input id="rank" type="range" min="0" max="239" step="1" value="8" disabled />
+          <span id="rankVal" class="val">8</span>
+        </span>
       </label>
     </div>
     <p class="demo-callout" id="kExplain">
       Loading…
     </p>
 
-    <h3 class="subhead">Those $k$ numbers, as bars</h3>
+    <h3 class="subhead">Singular directions for this face</h3>
     <p class="hint">
-      Each bar is one of the numbers in the short list for this face. Blue bars are the ones you are
-      keeping. Gray bars are thrown away at this $k$ — that is the squeeze.
+      Truncated SVD keeps the top $k$ pieces ordered by
+      <strong>singular value</strong> $\sigma_1 \ge \sigma_2 \ge \cdots$
+      (largest stretch first — same idea as on the truncate page).
+      Each bar is this face’s coordinate along that shared direction.
+      The amber curve is the singular values themselves (shared by everyone).
+      Blue = kept at this $k$; gray = thrown away.
     </p>
-    <canvas id="codeBars" class="code-bars" width="640" height="120" aria-label="Bottleneck coefficients"></canvas>
+    <canvas
+      id="codeBars"
+      class="code-bars"
+      width="640"
+      height="140"
+      aria-label="Coefficients along singular vectors, with singular-value spectrum"
+    ></canvas>
   </section>
 
   <section class="theory appendix" id="appendix" aria-label="Appendix">
     <h2>Appendix — names for the curious</h2>
     <ul class="appendix-list">
       <li>
-        <strong>Warp / alignment.</strong>
-        We use landmark
-        <a href="https://en.wikipedia.org/wiki/Procrustes_analysis" target="_blank" rel="noopener noreferrer">Procrustes</a>
-        alignment, then a piecewise-affine warp on a
-        <a href="https://en.wikipedia.org/wiki/Delaunay_triangulation" target="_blank" rel="noopener noreferrer">Delaunay</a>
-        mesh (<code>delaunator</code>) so every face shares one mean shape. The warp does
-        <em>not</em> reduce dimension; it only changes coordinates.
+        <strong>What is stored for each face.</strong>
+        After centering (subtract the average face), column $j$ of $X$ has coordinates
+        $c_{1j},c_{2j},\ldots$ along the left singular vectors $u_1,u_2,\ldots$ of the stack.
+        Those $c$’s are the bars below; the amber curve is $\sigma_1,\sigma_2,\ldots$.
+        Rank-$k$ rebuild is
+        $\hat x_j = \bar x + \sum_{i=1}^{k} c_{ij}\,u_i$
+        (<code>ml-matrix</code> SVD).
       </li>
       <li>
-        <strong>Bottleneck / rebuild.</strong>
-        Same story as truncated SVD on the previous page: keep rank $k$, discard the rest, decode.
-        Here the matrix columns are lined-up face images; the middle panel is $\hat x$ from those
-        $k$ coefficients (<code>ml-matrix</code> SVD).
+        <strong>Warp / alignment.</strong>
+        Raw photos put eyes and mouths in different places; a pixel-wise SVD would waste
+        early singular components on “where is the feature?” We mark the same landmarks on
+        every face,
+        <a href="https://en.wikipedia.org/wiki/Procrustes_analysis" target="_blank" rel="noopener noreferrer">Procrustes</a>-align
+        shapes, then piecewise-affine warp on a
+        <a href="https://en.wikipedia.org/wiki/Delaunay_triangulation" target="_blank" rel="noopener noreferrer">Delaunay</a>
+        mesh (<code>delaunator</code>) onto a shared mean shape. The warp does
+        <em>not</em> reduce dimension — it only puts correspondence into the columns before
+        the SVD.
+      </li>
+      <li>
+        <strong>Demo panels.</strong>
+        Left = lined-up original column. Middle = truncated-SVD rebuild at the current $k$.
+        Right = $k=0$: nothing kept, just the average face.
       </li>
       <li>
         <strong>Data.</strong>

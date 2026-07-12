@@ -54,23 +54,28 @@ function syncLabel(): void {
 function explain(k: number, err: number): void {
   if (k === 0) {
     el.kExplain.textContent =
-      "k = 0: you kept no numbers at all. Everyone rebuilds as the same average face — this person’s identity is gone.";
+      "k = 0: you kept no singular components. Everyone rebuilds as the same average face — this person’s identity is gone.";
   } else if (modelRank > 0 && k >= modelRank) {
-    el.kExplain.textContent = `k = ${k}: full rank for this stack (N−1 = ${modelRank}). Middle should match the left (error ${err.toFixed(4)}).`;
+    el.kExplain.textContent = `k = ${k}: full rank for this stack (N−1 = ${modelRank}). Every singular component is kept — middle should match the left (error ${err.toFixed(4)}).`;
   } else if (k <= 3) {
-    el.kExplain.textContent = `k = ${k}: only a few numbers fit through. You get a rough “someone,” not quite this person yet (error ${err.toFixed(4)} vs the left picture).`;
+    el.kExplain.textContent = `k = ${k}: only the largest-${k} singular components. You get a rough “someone,” not quite this person yet (error ${err.toFixed(4)} vs the left picture).`;
   } else if (k <= 12) {
-    el.kExplain.textContent = `k = ${k}: more numbers get through, so lighting and features return. Closer to the left (error ${err.toFixed(4)}).`;
+    el.kExplain.textContent = `k = ${k}: more singular components get through, so lighting and features return. Closer to the left (error ${err.toFixed(4)}).`;
   } else if (k <= 40) {
-    el.kExplain.textContent = `k = ${k}: most of this face fits, but this is still truncated — full rank is ${modelRank} (error ${err.toFixed(4)}).`;
+    el.kExplain.textContent = `k = ${k}: most of this face fits, but smaller singular values are still cut — full rank is ${modelRank} (error ${err.toFixed(4)}).`;
   } else {
-    el.kExplain.textContent = `k = ${k}: fine detail returning; only ${modelRank - k} directions left unused (error ${err.toFixed(4)}).`;
+    el.kExplain.textContent = `k = ${k}: fine detail from smaller singular values returning; only ${modelRank - k} components left unused (error ${err.toFixed(4)}).`;
   }
-  el.reconCap.textContent = k === 0 ? "average only" : `${k} number${k === 1 ? "" : "s"}`;
+  el.reconCap.textContent =
+    k === 0 ? "average only" : `top ${k} singular component${k === 1 ? "" : "s"}`;
 }
 
-function drawCodeBars(code: Float64Array, k: number): void {
+function drawCodeBars(code: Float64Array, k: number, sigma: number[]): void {
   const c = el.codeBars;
+  const cssW = Math.max(320, Math.floor(c.clientWidth || c.parentElement?.clientWidth || 640));
+  const cssH = 140;
+  if (c.width !== cssW) c.width = cssW;
+  if (c.height !== cssH) c.height = cssH;
   const ctx = c.getContext("2d")!;
   const w = c.width;
   const h = c.height;
@@ -78,25 +83,78 @@ function drawCodeBars(code: Float64Array, k: number): void {
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, w, h);
   const n = code.length;
-  const gap = n > 80 ? 0 : 2;
+  const gap = n > 80 ? 0 : 1;
   const barW = Math.max(1, (w - gap * (n + 1)) / n);
   let maxAbs = 1e-6;
   for (let i = 0; i < n; i++) maxAbs = Math.max(maxAbs, Math.abs(code[i]!));
-  const mid = h / 2;
+  let maxSig = 1e-6;
+  for (let i = 0; i < Math.min(n, sigma.length); i++) maxSig = Math.max(maxSig, sigma[i]!);
+  const mid = h * 0.58;
+  const sigTop = h * 0.08;
+  const sigBot = mid - 6;
+
+  // Singular-value spectrum (shared): amber area under σ_i, left → right descending.
+  ctx.beginPath();
+  ctx.moveTo(gap + barW / 2, sigBot);
+  for (let i = 0; i < n; i++) {
+    const s = (sigma[i] ?? 0) / maxSig;
+    const x = gap + i * (barW + gap) + barW / 2;
+    const y = sigBot - s * (sigBot - sigTop);
+    if (i === 0) ctx.lineTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.lineTo(gap + (n - 1) * (barW + gap) + barW / 2, sigBot);
+  ctx.closePath();
+  ctx.fillStyle = "rgba(230, 159, 0, 0.18)";
+  ctx.fill();
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const s = (sigma[i] ?? 0) / maxSig;
+    const x = gap + i * (barW + gap) + barW / 2;
+    const y = sigBot - s * (sigBot - sigTop);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = "#e69f00";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Truncation marker at k.
+  if (k > 0 && k < n) {
+    const xCut = gap + k * (barW + gap);
+    ctx.strokeStyle = "rgba(45,45,45,0.35)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(xCut, 4);
+    ctx.lineTo(xCut, h - 4);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
   ctx.strokeStyle = "rgba(45,45,45,0.2)";
+  ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(0, mid);
   ctx.lineTo(w, mid);
   ctx.stroke();
+
+  // This face’s coordinates along each singular direction (signed).
   for (let i = 0; i < n; i++) {
     const v = code[i]! / maxAbs;
-    const bh = v * (h * 0.42);
+    const bh = v * (h * 0.32);
     const x = gap + i * (barW + gap);
     const active = i < k;
     ctx.fillStyle = active ? "#0072b2" : "rgba(45,45,45,0.18)";
     if (bh >= 0) ctx.fillRect(x, mid - bh, barW, Math.max(bh, 1));
     else ctx.fillRect(x, mid, barW, Math.max(-bh, 1));
   }
+
+  ctx.fillStyle = "rgba(45,45,45,0.55)";
+  ctx.font = "11px DM Sans, system-ui, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("σ (singular values)", 6, 14);
+  ctx.fillText("coefficients for this face", 6, mid + 12);
 }
 
 function refresh(): void {
@@ -108,7 +166,7 @@ function refresh(): void {
   drawGray(el.cvOrig, orig, FACE_SIZE);
   drawGray(el.cvRecon, recon, FACE_SIZE);
   drawGray(el.cvMean, model.meanAppearance, FACE_SIZE);
-  drawCodeBars(code, k);
+  drawCodeBars(code, k, model.appearanceSigma);
   explain(k, mseGray(orig, recon));
 }
 
@@ -136,6 +194,10 @@ function paintStrip(): void {
 el.rank.addEventListener("input", () => {
   syncLabel();
   refresh();
+});
+
+window.addEventListener("resize", () => {
+  if (model) refresh();
 });
 
 syncLabel();

@@ -839,7 +839,9 @@ function paintBuild(): void {
     `xₙ ≈ ${fmtPair(xn, yn)}\n` +
     `Hx ≈ ${fmtPair(hx, hy)}`;
 
-  const extent = Math.max(1.6, probeLen * 1.2, Math.hypot(hx, hy) * 1.15);
+  // Fixed world window so the unit normal n does not appear to change length
+  // when the probe slider moves (scale used to track probeLen via extent).
+  const extent = 2.5;
 
   paintCanvas(el.build1, extent, (ctx, cx, cy, scale) => {
     drawMirrorLine(ctx, cx, cy, scale, ang, extent);

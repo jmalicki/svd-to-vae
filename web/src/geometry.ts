@@ -19,9 +19,6 @@ declare global {
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 
-const ROT_A = rotationMatrixDeg(40);
-const STRETCH_A = stretchMatrix(2.2, 0.7);
-
 app.innerHTML = `
   <header>
     ${chapterNav({ current: 1, next: { href: "./truncate.html", label: "Next →" } })}
@@ -42,11 +39,18 @@ app.innerHTML = `
     <h2>Piece 1 · Rotation</h2>
     <p>
       A rotation matrix turns every vector by the same angle and never changes lengths.
-      On the unit circle, tips stay on a circle — they just spin.
+      On the unit circle, tips stay on a circle — they just spin. Drag the angle.
     </p>
-    <div class="math">
-      $$R_{40^{\\circ}} = \\begin{bmatrix} \\cos 40^{\\circ} & -\\sin 40^{\\circ} \\\\ \\sin 40^{\\circ} & \\cos 40^{\\circ} \\end{bmatrix}$$
+    <div class="controls">
+      <div class="control-row">
+        <label class="slider">
+          <span class="slider-label">Angle <strong id="rotDegVal">40°</strong></span>
+          <input id="rotDeg" type="range" min="-180" max="180" step="1" value="40" />
+        </label>
+        <p class="help">Counterclockwise rotation of every vector.</p>
+      </div>
     </div>
+    <p class="formula" id="rotFormula" aria-live="polite"></p>
     <div class="grid-2 ellipse-pair">
       <div class="panel">
         <h2>Inputs of length 1</h2>
@@ -63,11 +67,22 @@ app.innerHTML = `
     <h2>Piece 2 · Stretch</h2>
     <p>
       A diagonal matrix stretches the axes independently: scale $x$ by one factor, $y$ by another.
-      Lengths change. The unit circle becomes an axis-aligned ellipse.
+      Lengths change. The unit circle becomes an axis-aligned ellipse. Drag the factors.
     </p>
-    <div class="math">
-      $$S = \\begin{bmatrix} 2.2 & 0 \\\\ 0 & 0.7 \\end{bmatrix}$$
+    <div class="controls">
+      <div class="control-row">
+        <label class="slider">
+          <span class="slider-label">Scale $x$ <strong id="sxVal">2.20</strong></span>
+          <input id="sx" type="range" min="0" max="3" step="0.05" value="2.2" />
+        </label>
+        <label class="slider">
+          <span class="slider-label">Scale $y$ <strong id="syVal">0.70</strong></span>
+          <input id="sy" type="range" min="0" max="3" step="0.05" value="0.7" />
+        </label>
+      </div>
+      <p class="help">Equal scales → still a circle (bigger or smaller). Unequal → ellipse. Zero on one axis → a line segment.</p>
     </div>
+    <p class="formula" id="stFormula" aria-live="polite"></p>
     <div class="grid-2 ellipse-pair">
       <div class="panel">
         <h2>Inputs of length 1</h2>
@@ -77,7 +92,7 @@ app.innerHTML = `
       <div class="panel">
         <h2>After stretch</h2>
         <canvas id="stOut" width="280" height="280" aria-label="Ellipse after stretch"></canvas>
-        <p class="hint">Long reach $2.2$ along $x$, short reach $0.7$ along $y$.</p>
+        <p class="hint" id="stHint">Long reach along $x$, short reach along $y$.</p>
       </div>
     </div>
 
@@ -304,6 +319,15 @@ const el = {
   a22Val: app.querySelector<HTMLElement>("#a22Val")!,
   analysisA: app.querySelector<HTMLElement>("#analysisA")!,
   stretchReadout: app.querySelector<HTMLElement>("#stretchReadout")!,
+  rotDeg: app.querySelector<HTMLInputElement>("#rotDeg")!,
+  rotDegVal: app.querySelector<HTMLElement>("#rotDegVal")!,
+  rotFormula: app.querySelector<HTMLElement>("#rotFormula")!,
+  sx: app.querySelector<HTMLInputElement>("#sx")!,
+  sy: app.querySelector<HTMLInputElement>("#sy")!,
+  sxVal: app.querySelector<HTMLElement>("#sxVal")!,
+  syVal: app.querySelector<HTMLElement>("#syVal")!,
+  stFormula: app.querySelector<HTMLElement>("#stFormula")!,
+  stHint: app.querySelector<HTMLElement>("#stHint")!,
   rotIn: app.querySelector<HTMLCanvasElement>("#rotIn")!,
   rotOut: app.querySelector<HTMLCanvasElement>("#rotOut")!,
   stIn: app.querySelector<HTMLCanvasElement>("#stIn")!,
@@ -525,6 +549,23 @@ function paintPair(
 }
 
 function paintPieces(): void {
+  const deg = Number(el.rotDeg.value);
+  const sx = Number(el.sx.value);
+  const sy = Number(el.sy.value);
+  const ROT_A = rotationMatrixDeg(deg);
+  const STRETCH_A = stretchMatrix(sx, sy);
+
+  el.rotDegVal.textContent = `${Math.round(deg)}°`;
+  el.sxVal.textContent = fmt(sx);
+  el.syVal.textContent = fmt(sy);
+  el.rotFormula.textContent =
+    `R = [[${fmt(get(ROT_A, 0, 0))}, ${fmt(get(ROT_A, 0, 1))}],  [${fmt(get(ROT_A, 1, 0))}, ${fmt(get(ROT_A, 1, 1))}]]  (${Math.round(deg)}°)`;
+  el.stFormula.textContent = `S = [[${fmt(sx)}, 0],  [0, ${fmt(sy)}]]`;
+  el.stHint.textContent =
+    sx === sy
+      ? `Equal scales → circle of radius ${fmt(sx)}.`
+      : `Reach ${fmt(sx)} along x, ${fmt(sy)} along y.`;
+
   paintCanvas(el.rotIn, 1.35, (ctx, cx, cy, scale) => {
     drawCurve(ctx, cx, cy, scale, (t) => [Math.cos(t), Math.sin(t)], INK);
     drawArrow(ctx, cx, cy, scale, 1, 0, ACCENT2, "(1, 0)");
@@ -538,15 +579,16 @@ function paintPieces(): void {
     drawArrow(ctx, cx, cy, scale, a20, a21, ACCENT, "R(0,1)");
   });
 
+  const stScale = Math.max(2.4, Math.max(sx, sy) * 1.25, 1.2);
   paintCanvas(el.stIn, 1.35, (ctx, cx, cy, scale) => {
     drawCurve(ctx, cx, cy, scale, (t) => [Math.cos(t), Math.sin(t)], INK);
     drawArrow(ctx, cx, cy, scale, 1, 0, ACCENT2, "(1, 0)");
     drawArrow(ctx, cx, cy, scale, 0, 1, ACCENT, "(0, 1)");
   });
-  paintCanvas(el.stOut, 2.6, (ctx, cx, cy, scale) => {
+  paintCanvas(el.stOut, stScale, (ctx, cx, cy, scale) => {
     drawCurve(ctx, cx, cy, scale, (t) => applyMat2(STRETCH_A, Math.cos(t), Math.sin(t)), INK);
-    drawArrow(ctx, cx, cy, scale, 2.2, 0, ACCENT2, "(2.2, 0)");
-    drawArrow(ctx, cx, cy, scale, 0, 0.7, ACCENT, "(0, 0.7)");
+    if (sx > 1e-6) drawArrow(ctx, cx, cy, scale, sx, 0, ACCENT2, `(${fmt(sx)}, 0)`);
+    if (sy > 1e-6) drawArrow(ctx, cx, cy, scale, 0, sy, ACCENT, `(0, ${fmt(sy)})`);
   });
 }
 
@@ -603,6 +645,10 @@ function redrawSynth(): void {
 for (const input of [el.a11, el.a12, el.a21, el.a22]) {
   input.addEventListener("input", redrawAnalysis);
 }
+
+el.rotDeg.addEventListener("input", paintPieces);
+el.sx.addEventListener("input", paintPieces);
+el.sy.addEventListener("input", paintPieces);
 
 app.querySelectorAll<HTMLButtonElement>("[data-amat]").forEach((btn) => {
   btn.addEventListener("click", () => {

@@ -25,7 +25,7 @@ const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
   <header>
     ${chapterNav({
-      current: 5,
+      current: 6,
       prev: { href: "./gradient.html", label: "← Gradient" },
     })}
     <h1>Noise in the bottleneck</h1>
@@ -107,7 +107,7 @@ app.innerHTML = `
   <footer class="chapter-footer">
     <a href="./gradient.html">← Back: gradient</a>
     <a href="./faces.html">Faces demo</a>
-    <a href="./">Home: truncated SVD</a>
+    <a href="./">Home: matrix geometry</a>
   </footer>
 `;
 

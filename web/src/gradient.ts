@@ -28,7 +28,7 @@ const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
   <header>
     ${chapterNav({
-      current: 4,
+      current: 5,
       prev: { href: "./faces.html", label: "← Faces" },
       next: { href: "./noise.html", label: "Next →" },
     })}
@@ -38,7 +38,7 @@ app.innerHTML = `
     </p>
     <p class="lede">
       The
-      <a href="./">truncated SVD</a>
+      <a href="./truncate.html">truncated SVD</a>
       already gives the best rank-$k$ rebuild of a matrix.
       This page asks whether plain
       <a href="https://en.wikipedia.org/wiki/Gradient_descent" target="_blank" rel="noopener noreferrer">gradient descent</a>

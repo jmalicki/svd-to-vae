@@ -1,19 +1,20 @@
-/** Shared prev/next + chapter strip for the five-page tour. */
+/** Shared prev/next + chapter strip for the six-page tour. */
 
 export type NavLink = { href: string; label: string };
 
-const STRIP: { href: string; label: string; n: 1 | 2 | 3 | 4 | 5 }[] = [
+const STRIP: { href: string; label: string; n: 1 | 2 | 3 | 4 | 5 | 6 }[] = [
   { n: 1, href: "./", label: "Matrix" },
-  { n: 2, href: "./truncate.html", label: "Truncate" },
-  { n: 3, href: "./faces.html", label: "Faces" },
-  { n: 4, href: "./gradient.html", label: "Gradient" },
-  { n: 5, href: "./noise.html", label: "Sampling" },
+  { n: 2, href: "./svd.html", label: "SVD" },
+  { n: 3, href: "./truncate.html", label: "Truncate" },
+  { n: 4, href: "./faces.html", label: "Faces" },
+  { n: 5, href: "./gradient.html", label: "Gradient" },
+  { n: 6, href: "./noise.html", label: "Sampling" },
 ];
 
 export function chapterNav(opts: {
   prev?: NavLink;
   next?: NavLink;
-  current: 1 | 2 | 3 | 4 | 5;
+  current: 1 | 2 | 3 | 4 | 5 | 6;
 }): string {
   const parts: string[] = [];
   if (opts.prev) {

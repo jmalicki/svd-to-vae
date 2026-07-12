@@ -22,23 +22,20 @@ const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
   <header>
     ${chapterNav({
-      current: 2,
-      prev: { href: "./", label: "← Matrix" },
+      current: 3,
+      prev: { href: "./svd.html", label: "← SVD" },
       next: { href: "./faces.html", label: "Next →" },
     })}
-    <h1>Same factorization, larger matrices</h1>
+    <h1>Keeping only some of the stretches</h1>
     <p class="repo">
       <a href="https://github.com/jmalicki/svd-to-vae" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
     </p>
     <p class="lede">
-      The $2\\times 2$ picture was rotate–stretch–rotate. The same factorization works for any size:
-      $A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$ with
-      <a href="https://en.wikipedia.org/wiki/Orthonormality" target="_blank" rel="noopener noreferrer">orthonormal</a>
-      $U$, $V$ and nonnegative singular values $\\sigma$.
+      The SVD writes $A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$ with every singular value kept.
       Once you have many $\\sigma$'s, you can keep only the largest $k$ and rebuild an approximation
-      $\\hat A_k = U_k\\,\\mathrm{diag}(\\sigma)\\,V_k^{\\top}$ — that is truncated SVD.
+      $\\hat A_k = U_k\\,\\mathrm{diag}(\\sigma)\\,V_k^{\\top}$ — that is
+      <a href="https://en.wikipedia.org/wiki/Low-rank_approximation" target="_blank" rel="noopener noreferrer">truncated SVD</a>.
     </p>
-
   </header>
 
   <section class="theory" aria-label="Truncated SVD">
@@ -46,13 +43,9 @@ app.innerHTML = `
     <ol class="theory-steps">
       <li>
         <p>
-          Any matrix $A\\in\\mathbb{R}^{n\\times n}$ splits into three pieces:
-          left singular vectors $U$, diagonal scales $\\sigma_1\\ge\\sigma_2\\ge\\cdots\\ge 0$,
-          and right singular vectors $V$.
+          Start from the full factorization $A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$.
+          The singular values are ordered $\\sigma_1\\ge\\sigma_2\\ge\\cdots\\ge 0$.
         </p>
-        <div class="math">
-          $$A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$$
-        </div>
       </li>
       <li>
         <p>
@@ -163,6 +156,17 @@ app.innerHTML = `
       $$\\min_{\\mathrm{rank}(B)\\le k}\\;\\|A - B\\|_F
         = \\|A - U_k\\,\\mathrm{diag}(\\sigma)\\,V_k^{\\top}\\|_F$$
     </div>
+  </section>
+
+  <section class="conclusion" id="conclusion" aria-label="Summary">
+    <h2>In short</h2>
+    <p>
+      Truncated SVD keeps the largest $k$ singular values and drops the rest.
+      The reconstruction $\\hat A_k$ is the best rank-$k$ approximation in Frobenius norm.
+    </p>
+    <p class="next-chapter">
+      <a href="./faces.html">Same idea, but the matrix is a stack of faces →</a>
+    </p>
   </section>
 `;
 

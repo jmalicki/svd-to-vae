@@ -23,7 +23,7 @@ const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
   <header>
     ${chapterNav({
-      current: 3,
+      current: 4,
       prev: { href: "./truncate.html", label: "← Truncate" },
       next: { href: "./gradient.html", label: "Next →" },
     })}
@@ -161,7 +161,7 @@ app.innerHTML = `
   </section>
 
   <footer class="chapter-footer">
-    <a href="./">← Back: truncated SVD</a>
+    <a href="./truncate.html">← Back: truncated SVD</a>
     <a href="./gradient.html">Next →</a>
   </footer>
 `;

@@ -21,7 +21,7 @@ const app = document.querySelector<HTMLDivElement>("#app")!;
 
 app.innerHTML = `
   <header>
-    ${chapterNav({ current: 1, next: { href: "./truncate.html", label: "Next →" } })}
+    ${chapterNav({ current: 1, next: { href: "./svd.html", label: "Next →" } })}
     <h1>What a matrix does as a linear transformation</h1>
     <p class="repo">
       <a href="https://github.com/jmalicki/svd-to-vae" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
@@ -101,14 +101,6 @@ app.innerHTML = `
       A general linear transformation is not “only rotate” or “only stretch.”
       But it <em>is</em> always a composition of those kinds of pieces:
       rotate, then stretch, then rotate again.
-      That is the
-      <a href="https://en.wikipedia.org/wiki/Singular_value_decomposition" target="_blank" rel="noopener noreferrer">singular value decomposition</a>
-      (SVD). The stretch factors are the <strong>singular values</strong> $\\sigma_1 \\ge \\sigma_2$.
-    </p>
-    <div class="math">
-      $$A = U\\,\\mathrm{diag}(\\sigma_1,\\sigma_2)\\,V^{\\top}$$
-    </div>
-    <p>
       Below: scrub a general $A$, watch the output ellipse, then see the three-step movie
       for <em>your</em> matrix.
     </p>
@@ -118,8 +110,8 @@ app.innerHTML = `
     <h2>A general matrix</h2>
     <p class="demo-intro">
       Edit the entries. The longest and shortest reaches from the origin on the output ellipse
-      are $\\sigma_1$ and $\\sigma_2$ — the same stretch amounts as in the diagonal piece above,
-      but aimed in whatever directions $U$ and $V$ choose.
+      are the same kinds of stretch amounts as in the diagonal piece above —
+      just aimed in whatever directions the two rotations choose.
     </p>
 
     <div class="controls">
@@ -162,7 +154,7 @@ app.innerHTML = `
         <h2>Before: unit circle</h2>
         <canvas id="anIn" width="360" height="360" aria-label="Analysis unit circle"></canvas>
         <p class="hint">
-          Orange / blue: the two special input directions $v_1$, $v_2$ (right singular vectors).
+          Orange / blue: the two special input directions that become the ellipse axes.
           Moving dot: one $x$ on the circle.
         </p>
       </div>
@@ -170,8 +162,7 @@ app.innerHTML = `
         <h2>After: multiply by $A$</h2>
         <canvas id="anOut" width="360" height="360" aria-label="Analysis ellipse"></canvas>
         <p class="hint">
-          Axis lengths are $\\sigma_1$ and $\\sigma_2$. Arrows $\\sigma_j u_j = A v_j$.
-          Moving dot: $Ax$.
+          Axis lengths are the long and short stretches. Moving dot: $Ax$.
         </p>
       </div>
     </div>
@@ -180,74 +171,69 @@ app.innerHTML = `
   <section class="movie-block" aria-label="Rotate stretch rotate">
     <h2>A clean description of $A$: rotate, stretch, rotate</h2>
     <p class="demo-intro">
-      The same two pieces you met above, composed. For <em>your</em> matrix: rotate ($V^{\\top}$),
-      stretch by $\\sigma_1$ and $\\sigma_2$, rotate again ($U$).
+      The same two pieces you met above, composed. For <em>your</em> matrix: rotate,
+      stretch by the long and short amounts, rotate again.
     </p>
     <div class="movie-row" id="movieRow">
       <div class="panel movie-panel">
         <h2>1 · Start</h2>
         <canvas id="mv0" width="200" height="200" aria-label="Unit circle"></canvas>
-        <p class="hint">Unit circle with special directions $v_1$, $v_2$.</p>
+        <p class="hint">Unit circle with the special input directions.</p>
       </div>
       <div class="panel movie-panel">
-        <h2>2 · Rotate ($V^{\\top}$)</h2>
-        <canvas id="mv1" width="200" height="200" aria-label="After V transpose"></canvas>
+        <h2>2 · Rotate</h2>
+        <canvas id="mv1" width="200" height="200" aria-label="After first rotation"></canvas>
         <p class="hint">Those arrows rotate onto the coordinate axes.</p>
       </div>
       <div class="panel movie-panel">
-        <h2>3 · Stretch ($\\Sigma$)</h2>
-        <canvas id="mv2" width="200" height="200" aria-label="After Sigma"></canvas>
-        <p class="hint">Axis arrows lengthen to $\\sigma_1$, $\\sigma_2$.</p>
+        <h2>3 · Stretch</h2>
+        <canvas id="mv2" width="200" height="200" aria-label="After stretch"></canvas>
+        <p class="hint">Axis arrows lengthen to the long and short stretches.</p>
       </div>
       <div class="panel movie-panel">
-        <h2>4 · Rotate ($U$)</h2>
-        <canvas id="mv3" width="200" height="200" aria-label="After U"></canvas>
+        <h2>4 · Rotate</h2>
+        <canvas id="mv3" width="200" height="200" aria-label="After second rotation"></canvas>
         <p class="hint">Rotate the stretched arrows to the final ellipse.</p>
       </div>
     </div>
-    <div class="math">
-      $$A = U\\,\\mathrm{diag}(\\sigma_1,\\sigma_2)\\,V^{\\top}$$
-    </div>
     <p class="example-takeaway">
-      In words: rotate → stretch by $\\sigma_1$ and $\\sigma_2$ → rotate again.
-      That recipe is the
-      <a href="https://en.wikipedia.org/wiki/Singular_value_decomposition" target="_blank" rel="noopener noreferrer">singular value decomposition</a>
-      (SVD).
+      In words: rotate → stretch → rotate again. Every $2\\times 2$ linear transformation
+      factors this way.
     </p>
   </section>
 
   <section class="demo-block" aria-label="Synthesis playground">
     <h2>Rebuild $A$ from the pieces</h2>
     <p class="demo-intro">
-      Now scrub the stretches and the two rotation angles yourself.
-      $A$ is rebuilt as $U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$.
+      Scrub the stretches and the two rotation angles yourself.
+      The product of those three pieces is a matrix $A$ — same geometry as above, built forward.
     </p>
 
     <div class="controls">
       <div class="control-row">
         <label class="slider">
-          <span class="slider-label">Long stretch $\\sigma_1$ <strong id="s1Val">2.20</strong></span>
+          <span class="slider-label">Long stretch <strong id="s1Val">2.20</strong></span>
           <input id="s1" type="range" min="0" max="3" step="0.05" value="2.2" />
         </label>
         <p class="help">Long axis of the ellipse.</p>
       </div>
       <div class="control-row">
         <label class="slider">
-          <span class="slider-label">Short stretch $\\sigma_2$ <strong id="s2Val">0.80</strong></span>
+          <span class="slider-label">Short stretch <strong id="s2Val">0.80</strong></span>
           <input id="s2" type="range" min="0" max="3" step="0.05" value="0.8" />
         </label>
         <p class="help">Short axis. Zero → everything collapses to a line.</p>
       </div>
       <div class="control-row">
         <label class="slider">
-          <span class="slider-label">Input rotation ($V$) <strong id="thVVal">25°</strong></span>
+          <span class="slider-label">Input rotation <strong id="thVVal">25°</strong></span>
           <input id="thV" type="range" min="-90" max="90" step="1" value="25" />
         </label>
         <p class="help">Which circle directions get the long vs short stretch.</p>
       </div>
       <div class="control-row">
         <label class="slider">
-          <span class="slider-label">Output rotation ($U$) <strong id="thUVal">40°</strong></span>
+          <span class="slider-label">Output rotation <strong id="thUVal">40°</strong></span>
           <input id="thU" type="range" min="-90" max="90" step="1" value="40" />
         </label>
         <p class="help">Which way the finished ellipse points.</p>
@@ -259,7 +245,7 @@ app.innerHTML = `
           <button type="button" data-preset="flat" class="secondary">Flatten</button>
           <button type="button" data-preset="tilt" class="secondary">Tilted</button>
         </div>
-        <p class="help">Presets set $\\sigma$ and both angles.</p>
+        <p class="help">Presets set both stretches and both angles.</p>
       </div>
     </div>
 
@@ -282,14 +268,10 @@ app.innerHTML = `
     <h2>In short</h2>
     <p>
       Rotation moves directions without changing lengths; stretch changes lengths along the axes.
-      The SVD is the claim that every matrix factors into those operations:
-      rotate, stretch by $\\sigma_1$ and $\\sigma_2$, rotate again —
-      written $A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$.
-      The singular values $\\sigma_1 \\ge \\sigma_2 \\ge 0$ are how hard $A$ stretches
-      in its strongest and weakest directions.
+      Any $2\\times 2$ linear transformation is those pieces composed: rotate, stretch, rotate again.
     </p>
     <p class="next-chapter">
-      <a href="./truncate.html">Same factorization, larger matrices →</a>
+      <a href="./svd.html">That recipe has a name →</a>
     </p>
   </section>
 `;

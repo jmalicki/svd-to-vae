@@ -97,9 +97,8 @@ app.innerHTML = `
   <section class="demo-block" aria-label="Aim onto axis">
     <h2>Aim an arrow onto the axis</h2>
     <p class="demo-intro">
-      Challenge: scrub a mirror until the reflected tip of $a$ sits on the $+x$-axis.
-      When you hit it, you have found the Householder — a mirror that introduces a zero
-      without stretching.
+      Drag the mirror until the reflected orange arrow lies flat on the horizontal axis.
+      That special mirror is a Householder: same lengths, but the arrow’s height becomes zero.
     </p>
     <div class="controls">
       <div class="control-row">
@@ -128,7 +127,7 @@ app.innerHTML = `
             <span class="slider-label">Mirror angle <strong id="huntAngVal">20°</strong></span>
             <input id="huntAng" type="range" min="-90" max="90" step="1" value="20" />
           </label>
-          <p class="help">Watch the height of the reflected tip. Goal: height → 0.</p>
+          <p class="help">Match the height meter to zero — reflected arrow flat on the axis.</p>
         </div>
       </div>
       <div class="hunt-meter" aria-hidden="true">
@@ -139,14 +138,14 @@ app.innerHTML = `
         <strong class="hunt-meter-val" id="huntMeterVal">—</strong>
       </div>
       <canvas id="huntCanvas" width="360" height="360" aria-label="Free mirror hunt for zero"></canvas>
-      <p class="hunt-banner" id="huntBanner" hidden>On the axis — that mirror is the Householder.</p>
+      <p class="hunt-banner" id="huntBanner" hidden>Got it — that mirror is the Householder.</p>
       <p class="hint" id="huntHint"></p>
     </div>
 
     <div class="panel" id="aimSolutionPanel">
       <h2>Why that mirror works</h2>
       <p class="help" id="aimSolutionTease">
-        Hit the axis in the challenge above to unlock the geometric construction.
+        Solve the mirror puzzle above to see why that angle works.
       </p>
       <div id="aimSolutionBody" hidden>
         <p class="demo-intro" style="margin-top:0">

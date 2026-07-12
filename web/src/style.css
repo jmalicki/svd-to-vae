@@ -75,6 +75,7 @@ header a {
 
 .formula {
   font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
   font-size: 0.82rem;
   background: var(--panel);
   border: 1px solid var(--line);

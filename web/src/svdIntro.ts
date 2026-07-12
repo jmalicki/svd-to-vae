@@ -771,6 +771,16 @@ function fmt(x: number, d = 2): string {
   return x.toFixed(d);
 }
 
+/** Fixed-width signed number so neighboring labels don't jump when the sign flips. */
+function fmtSigned(x: number, d = 3): string {
+  const body = Math.abs(x).toFixed(d);
+  return (x < 0 ? "-" : "\u2007") + body;
+}
+
+function fmtPair(x: number, y: number, d = 3): string {
+  return `(${fmtSigned(x, d)}, ${fmtSigned(y, d)})`;
+}
+
 function clamp(x: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, x));
 }
@@ -794,10 +804,10 @@ function paintBuild(): void {
   const [xn, yn] = normal;
 
   el.buildFormula.textContent =
-    `n ≈ (${fmt(nx, 3)}, ${fmt(ny, 3)}) · ` +
-    `nᵀx ≈ ${fmt(dot, 3)} · ` +
-    `xₙ ≈ (${fmt(xn, 3)}, ${fmt(yn, 3)}) · ` +
-    `Hx ≈ (${fmt(hx, 3)}, ${fmt(hy, 3)})`;
+    `n ≈ ${fmtPair(nx, ny)} · ` +
+    `nᵀx ≈ ${fmtSigned(dot)} · ` +
+    `xₙ ≈ ${fmtPair(xn, yn)} · ` +
+    `Hx ≈ ${fmtPair(hx, hy)}`;
 
   const extent = 1.6;
 

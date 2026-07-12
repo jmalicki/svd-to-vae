@@ -64,8 +64,9 @@ app.innerHTML = `
   <section class="demo-block" aria-label="Free mirror">
     <h2>Reflect across a line</h2>
     <p class="demo-intro">
-      Scrub the mirror. The unit circle and sample arrows bounce to the other side.
-      Nothing stretches — only which side of the line they sit on.
+      Scrub the <span class="mirror-label">orange mirror</span>.
+      The unit circle and sample arrows bounce to the other side of that line.
+      Thin gray lines are just the $x$ and $y$ axes — they do not move.
     </p>
     <div class="controls">
       <div class="control-row">
@@ -73,19 +74,19 @@ app.innerHTML = `
           <span class="slider-label">Mirror angle <strong id="mirAngVal">35°</strong></span>
           <input id="mirAng" type="range" min="-90" max="90" step="1" value="35" />
         </label>
-        <p class="help">Direction of the mirror line through the origin. The normal is $90^\\circ$ from the line.</p>
+        <p class="help">Turns the orange mirror line about the origin.</p>
       </div>
     </div>
     <div class="grid-2 ellipse-pair">
       <div class="panel">
         <h2>Before</h2>
         <canvas id="mirIn" width="280" height="280" aria-label="Unit circle before reflection"></canvas>
-        <p class="hint">Orange and blue sample arrows. Gray mirror line.</p>
+        <p class="hint">Orange band = mirror. Gray = coordinate axes.</p>
       </div>
       <div class="panel">
         <h2>After reflection</h2>
         <canvas id="mirOut" width="280" height="280" aria-label="Unit circle after reflection"></canvas>
-        <p class="hint">Same lengths. Orientation flipped across the mirror.</p>
+        <p class="hint">Arrows flip across the orange mirror; lengths unchanged.</p>
       </div>
     </div>
     <p class="formula">
@@ -435,24 +436,6 @@ function toCanvas(
   return [cx + x * scale, cy - y * scale];
 }
 
-function drawAxes(
-  ctx: CanvasRenderingContext2D,
-  cx: number,
-  cy: number,
-  scale: number,
-  worldR: number,
-): void {
-  const r = worldR * scale;
-  ctx.strokeStyle = MUTED;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(cx - r, cy);
-  ctx.lineTo(cx + r, cy);
-  ctx.moveTo(cx, cy - r);
-  ctx.lineTo(cx, cy + r);
-  ctx.stroke();
-}
-
 function drawArrow(
   ctx: CanvasRenderingContext2D,
   cx: number,
@@ -515,6 +498,30 @@ function drawCurve(
   ctx.stroke();
 }
 
+function drawAxes(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  scale: number,
+  worldR: number,
+): void {
+  const r = worldR * scale;
+  ctx.strokeStyle = MUTED;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(cx - r, cy);
+  ctx.lineTo(cx + r, cy);
+  ctx.moveTo(cx, cy - r);
+  ctx.lineTo(cx, cy + r);
+  ctx.stroke();
+  ctx.fillStyle = MUTED;
+  ctx.font = "500 11px DM Sans, system-ui, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("x", cx + r - 12, cy + 14);
+  ctx.textAlign = "center";
+  ctx.fillText("y", cx + 10, cy - r + 12);
+}
+
 function drawMirrorLine(
   ctx: CanvasRenderingContext2D,
   cx: number,
@@ -522,6 +529,7 @@ function drawMirrorLine(
   scale: number,
   lineAngleDeg: number,
   worldR: number,
+  opts?: { label?: boolean },
 ): void {
   const th = (lineAngleDeg * Math.PI) / 180;
   const dx = Math.cos(th);
@@ -529,14 +537,38 @@ function drawMirrorLine(
   const r = worldR * 1.15;
   const [x0, y0] = toCanvas(cx, cy, scale, -r * dx, -r * dy);
   const [x1, y1] = toCanvas(cx, cy, scale, r * dx, r * dy);
+
+  // Soft “glass” band so the mirror reads as a surface, not another axis
+  const nx = -dy;
+  const ny = dx;
+  const band = 5;
+  ctx.fillStyle = "rgba(213, 94, 0, 0.12)";
+  ctx.beginPath();
+  ctx.moveTo(x0 + nx * band, y0 - ny * band);
+  ctx.lineTo(x1 + nx * band, y1 - ny * band);
+  ctx.lineTo(x1 - nx * band, y1 + ny * band);
+  ctx.lineTo(x0 - nx * band, y0 + ny * band);
+  ctx.closePath();
+  ctx.fill();
+
   ctx.strokeStyle = MIRROR;
-  ctx.lineWidth = 2.5;
-  ctx.setLineDash([6, 5]);
+  ctx.lineWidth = 3;
+  ctx.setLineDash([]);
   ctx.beginPath();
   ctx.moveTo(x0, y0);
   ctx.lineTo(x1, y1);
   ctx.stroke();
-  ctx.setLineDash([]);
+
+  if (opts?.label !== false) {
+    const [lx, ly] = toCanvas(cx, cy, scale, 0.85 * r * dx, 0.85 * r * dy);
+    ctx.fillStyle = MIRROR;
+    ctx.font = "700 12px DM Sans, system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    // Offset label off the line along the normal
+    ctx.fillText("mirror", lx + nx * 14, ly - ny * 14);
+    ctx.textBaseline = "alphabetic";
+  }
 }
 
 function paintCanvas(

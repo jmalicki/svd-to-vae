@@ -1149,3 +1149,8 @@ button.film-cell.select-cell:hover {
   margin-bottom: 1.25rem;
 }
 
+.mirror-label {
+  color: #d55e00;
+  font-weight: 600;
+}
+

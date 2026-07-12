@@ -23,7 +23,7 @@ const app = document.querySelector<HTMLDivElement>("#app")!;
 mountPage(app, pageHtml, {
   nav: chapterNav({
     current: 4,
-    prev: { href: "./truncate.html", label: "← SVD" },
+    prev: { href: "./truncate.html", label: "← Decomposition" },
     next: { href: "./gradient.html", label: "Next →" },
   }),
 });

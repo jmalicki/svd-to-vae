@@ -1,9 +1,10 @@
 /**
- * Bake pre-warped IMM faces into one pack for fast page load.
+ * Bake pre-warped IMM faces + SVD models for fast page load.
  *
- * Uses the same TS pipeline as the browser (`buildExamplesFromLoaded` /
- * `encodeImmPack`). JPEG decode is pure JS (`jpeg-js`) so this could run
- * in-page too — build time is just “do it once.”
+ * Uses the same TS pipeline as the browser (`buildExamplesFromLoaded`,
+ * `buildFaceModel`, `encodeImmPack`, `encodeFaceModelPack`). JPEG decode is
+ * pure JS (`jpeg-js`) so this could run in-page too — build time is just
+ * “do it once.”
  *
  * Run: npm run gen:imm-pack
  */
@@ -14,16 +15,20 @@ import jpeg from "jpeg-js";
 import {
   FACE_SIZE,
   buildExamplesFromLoaded,
+  buildFaceModel,
+  buildPixelFoilModel,
   rgbaToGrayInPlace,
   type ImmManifest,
   type LoadedImmFace,
 } from "../src/faceModel";
 import { encodeImmPack } from "../src/immPack";
+import { encodeFaceModelPack } from "../src/faceModelPack";
 import { parseAsf, toPixels } from "../src/immAsf";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const IMM_DIR = path.resolve(__dirname, "../public/imm");
-const OUT = path.resolve(IMM_DIR, "examples.bin");
+const OUT_EXAMPLES = path.resolve(IMM_DIR, "examples.bin");
+const OUT_MODEL = path.resolve(IMM_DIR, "model.bin");
 
 function loadOneFromDisk(id: string): LoadedImmFace {
   const jpg = readFileSync(path.join(IMM_DIR, `${id}.jpg`));
@@ -41,7 +46,7 @@ function loadOneFromDisk(id: string): LoadedImmFace {
 
 const manifest = JSON.parse(readFileSync(path.join(IMM_DIR, "manifest.json"), "utf8")) as ImmManifest;
 const t0 = performance.now();
-console.log(`Baking ${manifest.files.length} IMM faces → ${path.relative(process.cwd(), OUT)}`);
+console.log(`Baking ${manifest.files.length} IMM faces`);
 
 const loaded: LoadedImmFace[] = [];
 for (let i = 0; i < manifest.files.length; i++) {
@@ -60,7 +65,30 @@ const examples = await buildExamplesFromLoaded(loaded, FACE_SIZE, (msg) => {
   console.log(`  ${msg}`);
 });
 
-const buf = encodeImmPack(examples, FACE_SIZE);
-writeFileSync(OUT, Buffer.from(buf));
-const mb = (buf.byteLength / (1024 * 1024)).toFixed(2);
-console.log(`Wrote ${examples.length} faces (${mb} MiB) in ${((performance.now() - t0) / 1000).toFixed(1)}s`);
+const exBuf = encodeImmPack(examples, FACE_SIZE);
+writeFileSync(OUT_EXAMPLES, Buffer.from(exBuf));
+console.log(
+  `  wrote ${path.relative(process.cwd(), OUT_EXAMPLES)} (${(exBuf.byteLength / (1024 * 1024)).toFixed(2)} MiB)`,
+);
+
+const fullK = Math.min(examples.length - 1, FACE_SIZE * FACE_SIZE);
+console.log(`  SVD rank ${fullK}…`);
+const tSvd = performance.now();
+const model = buildFaceModel(examples, fullK);
+const foil = buildPixelFoilModel(examples, fullK);
+console.log(`  SVD done in ${((performance.now() - tSvd) / 1000).toFixed(1)}s`);
+
+const modelBuf = encodeFaceModelPack(model, foil);
+writeFileSync(OUT_MODEL, Buffer.from(modelBuf));
+console.log(
+  `  wrote ${path.relative(process.cwd(), OUT_MODEL)} (${(modelBuf.byteLength / (1024 * 1024)).toFixed(2)} MiB)`,
+);
+console.log(`Bake wall time ${((performance.now() - t0) / 1000).toFixed(1)}s`);
+
+const { spawnSync } = await import("node:child_process");
+const check = spawnSync("npm", ["run", "test:imm-pack"], {
+  stdio: "inherit",
+  cwd: path.resolve(__dirname, ".."),
+  shell: true,
+});
+if (check.status !== 0) process.exit(check.status ?? 1);

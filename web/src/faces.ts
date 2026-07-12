@@ -4,11 +4,10 @@ import { mountPage } from "./mountPage";
 import pageHtml from "./pages/faces.html?raw";
 import {
   FACE_SIZE,
-  buildFaceModel,
-  decodeAppearance,
   drawGray,
   getAppearanceCode,
-  loadImmExamplesPack,
+  decodeAppearance,
+  loadImmFaceBundle,
   mseGray,
   type FaceModel,
 } from "./faceModel";
@@ -143,18 +142,14 @@ syncLabel();
 void (async () => {
   try {
     el.loadStatus.textContent = "Loading face pack…";
-    const { examples } = await loadImmExamplesPack(
-      `${import.meta.env.BASE_URL}imm/examples.bin`,
-      (msg) => {
-        el.loadStatus.textContent = msg;
-      },
-    );
-    const fullK = Math.min(examples.length - 1, FACE_SIZE * FACE_SIZE);
-    model = buildFaceModel(examples, fullK);
-    modelRank = fullK;
-    el.rank.max = String(fullK);
+    const { model: loaded } = await loadImmFaceBundle(`${import.meta.env.BASE_URL}imm`, (msg) => {
+      el.loadStatus.textContent = msg;
+    });
+    model = loaded;
+    modelRank = model.appearanceU.cols;
+    el.rank.max = String(modelRank);
     el.rank.disabled = false;
-    el.loadStatus.textContent = `${examples.length} faces · click one, then scrub k`;
+    el.loadStatus.textContent = `${model.examples.length} faces · click one, then scrub k`;
     paintStrip();
     drawGray(el.cvMean, model.meanAppearance, FACE_SIZE);
     refresh();

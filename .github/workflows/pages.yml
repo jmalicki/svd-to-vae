@@ -29,7 +29,11 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - run: npm ci --ignore-scripts
       - run: npm test
-      - run: npm run build
+      # Bake artifacts + timing gate (same as prebuild; run once here for clear CI logs)
+      - run: npm run gen:ringing
+      - run: npm run gen:imm-pack
+      - name: Build site
+        run: npx tsc --noEmit && npx vite build
         env:
           # Project site: https://jmalicki.github.io/svd-to-vae/
           VITE_BASE: /svd-to-vae/

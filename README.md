@@ -27,7 +27,7 @@ npm install --ignore-scripts   # skip native `gl` compile if it fails
 npm run dev
 ```
 
-`predev` / `prebuild` run `npm run gen:ringing`, which trains floored global-RMS + Armijo vs unfloored global-RMS (no line search), plots $\\|\\hat A_{\\mathrm{svd}}-\\hat A_{\\mathrm{gd}}\\|_F^{2}$, writes `public/ringing-floor.svg`, and **fails the build if the unfloored curve does not ring or the floored curve fails to stay near the Eckart–Young gap**.
+`predev` / `prebuild` run `npm run gen:ringing`, which trains floored global-RMS + Armijo vs unfloored global-RMS (no line search), plots $\\|\\hat A_{\\mathrm{svd}}-\\hat A_{\\mathrm{gd}}\\|_F^{2}$, writes `public/ringing-floor.svg`, and **fails the build if the unfloored curve does not ring or the floored curve fails to stay near the Eckart–Young gap**. They also run `npm run gen:imm-pack`, which warps the IMM faces and bakes SVD factors into `examples.bin` / `model.bin`, then **`npm run test:imm-pack` fails if unpacking those packs takes more than 3s** (guards against bringing runtime SVD back onto the page-load path). CI runs the same generators and timing check before `vite build`.
 
 ```bash
 cd web && npm test

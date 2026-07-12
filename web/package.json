@@ -6,6 +6,7 @@
   "scripts": {
     "gen:ringing": "node scripts/gen-ringing-plot.mjs",
     "gen:imm-pack": "vite-node scripts/bake-imm-pack.ts",
+    "test:imm-pack": "vite-node scripts/check-imm-pack-timing.ts",
     "predev": "npm run gen:ringing && npm run gen:imm-pack",
     "dev": "vite",
     "prebuild": "npm run gen:ringing && npm run gen:imm-pack",

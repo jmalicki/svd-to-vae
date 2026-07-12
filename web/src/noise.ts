@@ -4,15 +4,14 @@ import { mountPage } from "./mountPage";
 import pageHtml from "./pages/noise.html?raw";
 import {
   FACE_SIZE,
-  buildFaceModel,
-  buildPixelFoilModel,
   decodeAppearance,
   drawGray,
   getAppearanceCode,
-  loadImmExamplesPack,
+  loadImmFaceBundle,
   sampleNoisyAppearance,
   samplePixelFoil,
   type FaceModel,
+  type PixelFoilModel,
 } from "./faceModel";
 
 declare global {
@@ -50,7 +49,7 @@ const VARIANT_N = 5;
 const GALLERY_N = 12;
 
 let model: FaceModel | null = null;
-let foil: ReturnType<typeof buildPixelFoilModel> | null = null;
+let foil: PixelFoilModel | null = null;
 let selected = 0;
 
 function randn(): number {
@@ -158,21 +157,18 @@ syncLabels();
 void (async () => {
   try {
     el.loadStatus.textContent = "Loading face pack…";
-    const { examples } = await loadImmExamplesPack(
-      `${import.meta.env.BASE_URL}imm/examples.bin`,
-      (msg) => {
-        el.loadStatus.textContent = msg;
-      },
-    );
-    const fullK = Math.min(examples.length - 1, FACE_SIZE * FACE_SIZE);
-    model = buildFaceModel(examples, fullK);
-    foil = buildPixelFoilModel(examples, fullK);
+    const loaded = await loadImmFaceBundle(`${import.meta.env.BASE_URL}imm`, (msg) => {
+      el.loadStatus.textContent = msg;
+    });
+    model = loaded.model;
+    foil = loaded.foil;
+    const fullK = model.appearanceU.cols;
     el.rank.max = String(fullK);
     el.rank.disabled = false;
     el.tau.disabled = false;
     el.resample.disabled = false;
     el.resampleGallery.disabled = false;
-    el.loadStatus.textContent = `${examples.length} faces ready`;
+    el.loadStatus.textContent = `${model.examples.length} faces ready`;
     paintStrip();
     onControls();
   } catch (err) {

@@ -15,7 +15,11 @@ import {
   applyCanvasFit,
 } from "./faceWarp";
 import { parseAsf, toPixels } from "./immAsf";
-import { fetchImmPack } from "./immPack";
+import { decodeImmPack, fetchImmPack } from "./immPack";
+import { decodeFaceModelPack, type PixelFoilModel } from "./faceModelPack";
+
+export type { PixelFoilModel } from "./faceModelPack";
+export { encodeFaceModelPack } from "./faceModelPack";
 
 export const FACE_SIZE = 64;
 
@@ -214,6 +218,27 @@ export async function loadImmExamplesPack(
   return { examples: examples as FaceExample[] };
 }
 
+/**
+ * Load examples + prebaked SVD (and pixel foil) in parallel.
+ * Avoids ~10s of classical SVD on the main thread at page load.
+ */
+export async function loadImmFaceBundle(
+  baseUrl: string,
+  onProgress?: (msg: string) => void,
+): Promise<{ model: FaceModel; foil: PixelFoilModel }> {
+  onProgress?.("Loading face pack…");
+  const [exRes, modelRes] = await Promise.all([
+    fetch(`${baseUrl}/examples.bin`),
+    fetch(`${baseUrl}/model.bin`),
+  ]);
+  if (!exRes.ok) throw new Error(`examples pack ${exRes.status}`);
+  if (!modelRes.ok) throw new Error(`model pack ${modelRes.status}`);
+  onProgress?.("Unpacking…");
+  const [exBuf, modelBuf] = await Promise.all([exRes.arrayBuffer(), modelRes.arrayBuffer()]);
+  const { examples } = decodeImmPack(exBuf);
+  return decodeFaceModelPack(modelBuf, examples as FaceExample[]);
+}
+
 function appearanceMatrix(examples: FaceExample[]): Matrix {
   const nPix = FACE_SIZE * FACE_SIZE;
   const X = mat(nPix, examples.length);
@@ -366,12 +391,7 @@ export function sampleNoisyAppearance(
 }
 
 /** Pixel-space SVD foil: codes on bbox thumbs with no warp correspondence. */
-export function buildPixelFoilModel(examples: FaceExample[], rank: number): {
-  mean: Float64Array;
-  U: Matrix;
-  sigma: number[];
-  codes: Matrix;
-} {
+export function buildPixelFoilModel(examples: FaceExample[], rank: number): PixelFoilModel {
   const nPix = FACE_SIZE * FACE_SIZE;
   const X = mat(nPix, examples.length);
   for (let j = 0; j < examples.length; j++) {
@@ -385,11 +405,7 @@ export function buildPixelFoilModel(examples: FaceExample[], rank: number): {
   return { mean, U: svd.U, sigma: svd.sigma, codes };
 }
 
-export function samplePixelFoil(
-  foil: { mean: Float64Array; U: Matrix; sigma: number[]; codes: Matrix },
-  k: number,
-  tau: number,
-): Float64Array {
+export function samplePixelFoil(foil: PixelFoilModel, k: number, tau: number): Float64Array {
   const idx = Math.floor(Math.random() * foil.codes.rows);
   const kk = Math.min(k, foil.codes.cols);
   const out = new Float64Array(foil.mean);

@@ -23,8 +23,8 @@ const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
   <header>
     ${chapterNav({
-      current: 2,
-      prev: { href: "./", label: "← Truncated SVD" },
+      current: 3,
+      prev: { href: "./truncate.html", label: "← Truncate" },
       next: { href: "./gradient.html", label: "Next →" },
     })}
     <h1>Squeezing a face through a few numbers</h1>
@@ -33,7 +33,7 @@ app.innerHTML = `
     </p>
     <p class="lede">
       On the
-      <a href="./">previous page</a>,
+      <a href="./truncate.html">previous page</a>,
       a
       <a href="https://en.wikipedia.org/wiki/Low-rank_approximation" target="_blank" rel="noopener noreferrer">truncated SVD</a>
       was a way to <strong>compress</strong> a matrix: keep only the top $k$ pieces, throw the rest away,

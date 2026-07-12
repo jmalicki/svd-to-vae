@@ -28,7 +28,7 @@ const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
   <header>
     ${chapterNav({
-      current: 3,
+      current: 4,
       prev: { href: "./faces.html", label: "← Faces" },
       next: { href: "./noise.html", label: "Next →" },
     })}

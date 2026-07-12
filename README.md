@@ -8,10 +8,11 @@ Live: [https://jmalicki.github.io/svd-to-vae/](https://jmalicki.github.io/svd-to
 
 | Chapter | Page | Idea |
 | --- | --- | --- |
-| 1 | [`/`](https://jmalicki.github.io/svd-to-vae/) | Truncated SVD on a matrix |
-| 2 | [`/faces.html`](https://jmalicki.github.io/svd-to-vae/faces.html) | Face compression (IMM + warp + appearance SVD) |
-| 3 | [`/gradient.html`](https://jmalicki.github.io/svd-to-vae/gradient.html) | Recover factors by gradient descent |
-| 4 | [`/noise.html`](https://jmalicki.github.io/svd-to-vae/noise.html) | Noise in the bottleneck codes |
+| 1 | [`/`](https://jmalicki.github.io/svd-to-vae/) | SVD geometry: circle → ellipse, singular values |
+| 2 | [`/truncate.html`](https://jmalicki.github.io/svd-to-vae/truncate.html) | Truncated SVD on a matrix |
+| 3 | [`/faces.html`](https://jmalicki.github.io/svd-to-vae/faces.html) | Face compression (IMM + warp + appearance SVD) |
+| 4 | [`/gradient.html`](https://jmalicki.github.io/svd-to-vae/gradient.html) | Recover factors by gradient descent |
+| 5 | [`/noise.html`](https://jmalicki.github.io/svd-to-vae/noise.html) | Noise in the bottleneck codes |
 
 The standalone GD demo that started this work still lives at
 [svd-grad](https://jmalicki.github.io/svd-grad/)

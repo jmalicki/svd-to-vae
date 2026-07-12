@@ -453,6 +453,23 @@ button:hover {
   gap: 1rem;
 }
 
+.ellipse-pair canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fff;
+}
+
+.ellipse-pair .hint {
+  margin: 0.55rem 0 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.4;
+  max-width: 28rem;
+}
+
 @media (max-width: 860px) {
   .grid-2 {
     grid-template-columns: 1fr;

@@ -17,6 +17,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: path.resolve(root, "index.html"),
+        truncate: path.resolve(root, "truncate.html"),
         faces: path.resolve(root, "faces.html"),
         gradient: path.resolve(root, "gradient.html"),
         noise: path.resolve(root, "noise.html"),

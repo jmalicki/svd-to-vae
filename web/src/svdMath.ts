@@ -21,20 +21,22 @@ const app = document.querySelector<HTMLDivElement>("#app")!;
 
 app.innerHTML = `
   <header>
-    ${chapterNav({ current: 1, next: { href: "./faces.html", label: "Next →" } })}
-    <h1>Keep k, rebuild the matrix</h1>
+    ${chapterNav({
+      current: 2,
+      prev: { href: "./", label: "← Ellipse" },
+      next: { href: "./faces.html", label: "Next →" },
+    })}
+    <h1>A matrix from its top k pieces</h1>
     <p class="repo">
       <a href="https://github.com/jmalicki/svd-to-vae" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
     </p>
     <p class="lede">
-      The
-      <a href="https://en.wikipedia.org/wiki/Singular_value_decomposition" target="_blank" rel="noopener noreferrer">singular value decomposition</a>
-      (SVD) factors a matrix $A$ as $U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$ with
+      You just saw the SVD of a $2\\times 2$ map: singular values stretch a circle into an ellipse.
+      The same factorization works for any matrix — $A = U\\,\\mathrm{diag}(\\sigma)\\,V^{\\top}$ with
       <a href="https://en.wikipedia.org/wiki/Orthonormality" target="_blank" rel="noopener noreferrer">orthonormal</a>
-      $U$, $V$ and nonnegative singular values $\\sigma$.
+      $U$, $V$ and nonnegative $\\sigma$.
       <strong>Truncated SVD</strong> keeps only the top $k$ components and rebuilds an approximation
-      $\\hat A_k = U_k\\,\\mathrm{diag}(\\sigma)\\,V_k^{\\top}$ — the same compression idea as
-      keeping a short list of numbers and decoding the rest.
+      $\\hat A_k = U_k\\,\\mathrm{diag}(\\sigma)\\,V_k^{\\top}$ — throw away the small stretches first.
     </p>
   </header>
 

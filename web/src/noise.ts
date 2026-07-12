@@ -25,7 +25,7 @@ const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
   <header>
     ${chapterNav({
-      current: 4,
+      current: 5,
       prev: { href: "./gradient.html", label: "← Gradient" },
     })}
     <h1>Noise in the bottleneck</h1>

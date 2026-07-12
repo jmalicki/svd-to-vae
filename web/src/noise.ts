@@ -32,6 +32,7 @@ mountPage(app, pageHtml, {
 const el = {
   loadStatus: app.querySelector<HTMLSpanElement>("#loadStatus")!,
   filmstrip: app.querySelector<HTMLDivElement>("#filmstrip")!,
+  demoPanel: app.querySelector<HTMLElement>("#demoPanel")!,
   noiseRow: app.querySelector<HTMLDivElement>("#noiseRow")!,
   gallery: app.querySelector<HTMLDivElement>("#gallery")!,
   foilGallery: app.querySelector<HTMLDivElement>("#foilGallery")!,
@@ -154,6 +155,13 @@ el.resampleGallery.addEventListener("click", () => refreshGallery());
 
 syncLabels();
 
+function clearLoading(): void {
+  for (const node of [el.filmstrip, el.demoPanel, el.noiseRow, el.gallery, el.foilGallery]) {
+    node.classList.remove("is-loading");
+    node.removeAttribute("aria-busy");
+  }
+}
+
 void (async () => {
   try {
     el.loadStatus.textContent = "Loading face pack…";
@@ -168,6 +176,7 @@ void (async () => {
     el.tau.disabled = false;
     el.resample.disabled = false;
     el.resampleGallery.disabled = false;
+    clearLoading();
     el.loadStatus.textContent = `${model.examples.length} faces ready`;
     paintStrip();
     onControls();

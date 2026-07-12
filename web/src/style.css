@@ -1010,6 +1010,72 @@ canvas {
   overflow: auto;
 }
 
+.filmstrip.is-loading,
+.face-slot-row.is-loading {
+  min-height: 8.5rem;
+  max-height: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.filmstrip.selectable.is-loading {
+  min-height: 11.5rem;
+}
+
+.face-load-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 1rem 1.25rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+.face-load-sub {
+  font-size: 0.78rem;
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+.face-load-spinner {
+  width: 1.35rem;
+  height: 1.35rem;
+  margin-bottom: 0.15rem;
+  border: 2px solid rgba(45, 45, 45, 0.18);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: face-load-spin 0.75s linear infinite;
+}
+
+@keyframes face-load-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.demo-hero.is-loading .face-canvas-slot,
+.demo-hero.is-loading .code-bars {
+  background:
+    linear-gradient(90deg, rgba(45, 45, 45, 0.06) 0%, rgba(45, 45, 45, 0.12) 50%, rgba(45, 45, 45, 0.06) 100%);
+  background-size: 200% 100%;
+  animation: face-slot-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes face-slot-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
 .film-cell {
   flex: 0 0 auto;
   border: 1px solid var(--line);
@@ -1155,6 +1221,8 @@ button.primary:not(:disabled):hover {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
+  min-width: 14rem;
+  min-height: 4.5rem;
 }
 
 .noise-variants .film-cell canvas {

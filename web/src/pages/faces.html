@@ -58,13 +58,19 @@
   <section class="panel" aria-label="Pick a face">
     <div class="panel-head">
       <h2>Pick a face</h2>
-      <span id="loadStatus" class="muted">Loading…</span>
+      <span id="loadStatus" class="muted" aria-live="polite">Loading face pack…</span>
     </div>
     <p class="hint">
       Click someone below. Then move $k$: watch the middle picture go from “generic human” toward
       the person on the left.
     </p>
-    <div id="filmstrip" class="filmstrip selectable" role="list"></div>
+    <div id="filmstrip" class="filmstrip selectable is-loading" role="list" aria-busy="true">
+      <div class="face-load-indicator">
+        <span class="face-load-spinner" aria-hidden="true"></span>
+        <span>Downloading &amp; unpacking…</span>
+        <span class="face-load-sub">~10&nbsp;MB · usually a few seconds</span>
+      </div>
+    </div>
     <p class="hint dataset-cite">
       Faces from the
       <a href="http://www2.imm.dtu.dk/pubdb/pubs/3160-full.html" target="_blank" rel="noopener noreferrer">IMM Face Database</a>
@@ -73,11 +79,11 @@
     </p>
   </section>
 
-  <section class="panel demo-hero" aria-label="Bottleneck demo">
+  <section class="panel demo-hero is-loading" id="demoPanel" aria-label="Bottleneck demo" aria-busy="true">
     <h2>How many numbers does this face need?</h2>
     <div class="compare-row" id="compareRow">
       <figure>
-        <canvas id="cvOrig" width="64" height="64"></canvas>
+        <canvas id="cvOrig" width="64" height="64" class="face-canvas-slot"></canvas>
         <figcaption>Lined-up original<br /><span class="cap-sub">full picture</span></figcaption>
       </figure>
       <div class="compare-arrow" aria-hidden="true">
@@ -85,7 +91,7 @@
         <span class="arrow-glyph">→</span>
       </div>
       <figure>
-        <canvas id="cvRecon" width="64" height="64"></canvas>
+        <canvas id="cvRecon" width="64" height="64" class="face-canvas-slot"></canvas>
         <figcaption>Rebuilt from $k$ numbers<br /><span class="cap-sub" id="reconCap">$k$ numbers</span></figcaption>
       </figure>
       <div class="compare-arrow" aria-hidden="true">
@@ -93,7 +99,7 @@
         <span class="arrow-glyph">→</span>
       </div>
       <figure>
-        <canvas id="cvMean" width="64" height="64"></canvas>
+        <canvas id="cvMean" width="64" height="64" class="face-canvas-slot"></canvas>
         <figcaption>Average of everyone<br /><span class="cap-sub">$k = 0$</span></figcaption>
       </figure>
     </div>

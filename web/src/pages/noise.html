@@ -17,10 +17,16 @@
   <section class="panel" aria-label="Pick a face">
     <div class="panel-head">
       <h2>Start from one real face</h2>
-      <span id="loadStatus" class="muted">Loading…</span>
+      <span id="loadStatus" class="muted" aria-live="polite">Loading face pack…</span>
     </div>
     <p class="hint">Click a face. Its bottleneck code $z$ is the center of the noise cloud.</p>
-    <div id="filmstrip" class="filmstrip selectable" role="list"></div>
+    <div id="filmstrip" class="filmstrip selectable is-loading" role="list" aria-busy="true">
+      <div class="face-load-indicator">
+        <span class="face-load-spinner" aria-hidden="true"></span>
+        <span>Downloading &amp; unpacking…</span>
+        <span class="face-load-sub">~10&nbsp;MB · usually a few seconds</span>
+      </div>
+    </div>
     <p class="hint dataset-cite">
       Same
       <a href="http://www2.imm.dtu.dk/pubdb/pubs/3160-full.html" target="_blank" rel="noopener noreferrer">IMM Face Database</a>
@@ -30,18 +36,18 @@
     </p>
   </section>
 
-  <section class="panel demo-hero" aria-label="Noise demo">
+  <section class="panel demo-hero is-loading" id="demoPanel" aria-label="Noise demo" aria-busy="true">
     <h2>What the noise does</h2>
     <div class="compare-row noise-row">
       <figure>
-        <canvas id="cvExact" width="64" height="64"></canvas>
+        <canvas id="cvExact" width="64" height="64" class="face-canvas-slot"></canvas>
         <figcaption>Exact decode<br /><span class="cap-sub">$\tau = 0$ (same $z$)</span></figcaption>
       </figure>
       <div class="compare-arrow" aria-hidden="true">
         <span class="arrow-label">add $\tau\varepsilon$</span>
         <span class="arrow-glyph">→</span>
       </div>
-      <div id="noiseRow" class="noise-variants" role="list"></div>
+      <div id="noiseRow" class="noise-variants face-slot-row is-loading" role="list" aria-busy="true"></div>
     </div>
 
     <div class="controls face-controls">
@@ -72,7 +78,7 @@
       Each tile: pick a random training $z$, add noise, decode. Same warp-aligned SVD as the
       <a href="./faces.html">faces page</a>.
     </p>
-    <div id="gallery" class="face-gallery" role="list"></div>
+    <div id="gallery" class="face-gallery face-slot-row is-loading" role="list" aria-busy="true"></div>
   </section>
 
   <section class="panel" aria-label="Pixel foil">
@@ -80,7 +86,7 @@
     <p class="hint">
       Identical $k$ and $\tau$ on loose bbox crops (no mean-shape warp). Draws go foggy — eigenfaces without correspondence.
     </p>
-    <div id="foilGallery" class="face-gallery foil" role="list"></div>
+    <div id="foilGallery" class="face-gallery foil face-slot-row is-loading" role="list" aria-busy="true"></div>
   </section>
 
   <footer class="chapter-footer">

@@ -31,6 +31,7 @@ mountPage(app, pageHtml, {
 const el = {
   loadStatus: app.querySelector<HTMLSpanElement>("#loadStatus")!,
   filmstrip: app.querySelector<HTMLDivElement>("#filmstrip")!,
+  demoPanel: app.querySelector<HTMLElement>("#demoPanel")!,
   rank: app.querySelector<HTMLInputElement>("#rank")!,
   rankVal: app.querySelector<HTMLSpanElement>("#rankVal")!,
   kExplain: app.querySelector<HTMLParagraphElement>("#kExplain")!,
@@ -139,6 +140,13 @@ el.rank.addEventListener("input", () => {
 
 syncLabel();
 
+function clearLoading(): void {
+  el.filmstrip.classList.remove("is-loading");
+  el.filmstrip.removeAttribute("aria-busy");
+  el.demoPanel.classList.remove("is-loading");
+  el.demoPanel.removeAttribute("aria-busy");
+}
+
 void (async () => {
   try {
     el.loadStatus.textContent = "Loading face pack…";
@@ -149,6 +157,7 @@ void (async () => {
     modelRank = model.appearanceU.cols;
     el.rank.max = String(modelRank);
     el.rank.disabled = false;
+    clearLoading();
     el.loadStatus.textContent = `${model.examples.length} faces · click one, then scrub k`;
     paintStrip();
     drawGray(el.cvMean, model.meanAppearance, FACE_SIZE);
@@ -156,6 +165,7 @@ void (async () => {
   } catch (err) {
     console.error(err);
     el.loadStatus.textContent = `Failed: ${err instanceof Error ? err.message : String(err)}`;
+    el.filmstrip.classList.add("is-loading");
   }
 })();
 

@@ -183,6 +183,14 @@ header a {
   line-height: 1.4;
 }
 
+.build-rail .control-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.35rem;
+  padding: 0;
+  border-bottom: none;
+}
+
 .build-rail .formula {
   margin: 0;
   white-space: pre-line;

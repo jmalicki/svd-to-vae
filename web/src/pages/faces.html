@@ -26,44 +26,35 @@
           On the
           <a href="./truncate.html">previous page</a>
           we took a matrix, wrote it with an SVD, and then <em>truncated</em> it: keep only the
-          top $k$ singular components (the ones with the largest singular values), throw the rest
-          away, and rebuild an approximation. That recipe never cared what the numbers in the
-          matrix meant. They could have been anything.
+          top $k$ singular components, throw the rest away, and rebuild an approximation.
+          That recipe never cared what the numbers in the matrix meant.
         </p>
       </li>
       <li>
         <p>
-          <strong>Now the numbers are pixels.</strong>
-          Take each lined-up face photo and stretch it into one long column of pixel values.
-          Stack about 240 such columns side by side. Call that big matrix $X$. We are about to
-          do the same truncated SVD as before — only now every entry is a brightness in a face.
+          <strong>Here the matrix is a stack of faces.</strong>
+          Rough idea: line the photos up so the same spot in every picture is roughly the same
+          feature (eye, mouth, …), stretch each lined-up picture into one long column, and put
+          about 240 columns side by side. Call that matrix $X$. Every entry is a brightness at a
+          corresponding place on a face — not a toy entry, and not a random pixel from an
+          unaligned photo either. (How the lining-up works lives in the
+          <a href="#appendix">appendix</a>.)
         </p>
       </li>
       <li>
         <p>
           <strong>What the SVD gives you.</strong>
-          Same objects as always: a list of shared directions for the whole stack, ordered by
-          singular value (most important first), and — for each face — a list of coordinates
-          along those directions. Think of the shared directions as reusable “face patterns,”
-          and the coordinates as how much of each pattern this person needs.
-        </p>
-      </li>
-      <li>
-        <p>
-          <strong>That coordinate list is the face’s representation.</strong>
-          Instead of keeping thousands of pixels, we keep those coordinates. Truncating to rank
-          $k$ means keeping only the first $k$ of them (the ones tied to the largest singular
-          values) and rebuilding a picture from just that short list. The middle tile in the
-          demo is exactly that rebuild, sitting next to the original so you can see what was
-          lost.
+          Same objects as always: shared directions for the whole stack (reusable “face
+          patterns,” ordered by importance), and — for each face — a short list of coordinates
+          saying how much of each pattern this person needs. Truncating to rank $k$ means
+          keeping only the first $k$ of those coordinates and rebuilding a picture from just
+          that list. The middle tile in the demo is that rebuild.
         </p>
       </li>
     </ol>
     <p class="theory-note">
       Scrub $k$ below. Large $k$ can match the left tile; small $k$ is the interesting squeeze —
-      when does the rebuild stop looking like this person? (We line faces up before the SVD so
-      early components aren’t wasted on “where is the eye?” — warp details and the rebuild
-      formula live in the <a href="#appendix">appendix</a>.)
+      when does the rebuild stop looking like this person?
     </p>
   </section>
 
@@ -148,33 +139,43 @@
   </section>
 
   <section class="theory appendix" id="appendix" aria-label="Appendix">
-    <h2>Appendix — names for the curious</h2>
+    <h2>Appendix — representation, warp, and further reading</h2>
     <ul class="appendix-list">
       <li>
-        <strong>What is stored for each face.</strong>
-        After centering (subtract the average face), column $j$ of $X$ has coordinates
-        $c_{1j},c_{2j},\ldots$ along the left singular vectors $u_1,u_2,\ldots$ of the stack.
-        Those $c$’s are the bars below; the amber curve is $\sigma_1,\sigma_2,\ldots$.
-        Rank-$k$ rebuild is
-        $\hat x_j = \bar x + \sum_{i=1}^{k} c_{ij}\,u_i$
-        (<code>ml-matrix</code> SVD).
+        <strong>What $X$ actually is.</strong>
+        After lining faces up (next item), each face is a $64\times 64$ grayscale image. Flatten
+        it to a vector $x_j\in\mathbb{R}^{4096}$ and put the $N=240$ faces as columns of a matrix
+        $X=\bigl[x_1\ \cdots\ x_N\bigr]\in\mathbb{R}^{4096\times 240}$. Subtract the mean column
+        $\bar x$ so we work with centered data $\tilde X = X - \bar x\,\mathbf{1}^{\top}$.
+        An SVD $\tilde X = U\,\mathrm{diag}(\sigma)\,V^{\top}$ gives orthonormal columns
+        $u_1,u_2,\ldots$ of $U$ (shared appearance directions) and singular values
+        $\sigma_1\ge\sigma_2\ge\cdots$. Face $j$’s coordinates in that basis are the inner
+        products $c_{ij}=u_i^{\top}(x_j-\bar x)$ — the bars in the demo; the amber curve is the
+        $\sigma$’s. Truncating to rank $k$ keeps only the first $k$ directions:
+        $$\hat x_j = \bar x + \sum_{i=1}^{k} c_{ij}\,u_i,$$
+        i.e. the closest vector to $x_j$ in the affine subspace
+        $\bar x + \mathrm{span}\{u_1,\ldots,u_k\}$. Left demo tile $=x_j$; middle $=\hat x_j$;
+        right $=\bar x$ ($k=0$).
       </li>
       <li>
-        <strong>Warp / alignment.</strong>
-        Raw photos put eyes and mouths in different places; a pixel-wise SVD would waste
-        early singular components on “where is the feature?” We mark the same landmarks on
-        every face,
+        <strong>Why warp first.</strong>
+        Raw photos put eyes and mouths in different places. If you flatten unaligned crops into
+        vectors and take an SVD, early singular vectors spend their energy on “where is the
+        feature?” rather than “what does it look like?” We mark the same landmarks on every face,
         <a href="https://en.wikipedia.org/wiki/Procrustes_analysis" target="_blank" rel="noopener noreferrer">Procrustes</a>-align
-        shapes, then piecewise-affine warp on a
+        the landmark shapes, then piecewise-affine warp on a
         <a href="https://en.wikipedia.org/wiki/Delaunay_triangulation" target="_blank" rel="noopener noreferrer">Delaunay</a>
-        mesh (<code>delaunator</code>) onto a shared mean shape. The warp does
-        <em>not</em> reduce dimension — it only puts correspondence into the columns before
-        the SVD.
-      </li>
-      <li>
-        <strong>Demo panels.</strong>
-        Left = lined-up original column. Middle = truncated-SVD rebuild at the current $k$.
-        Right = $k=0$: nothing kept, just the average face.
+        mesh (<code>delaunator</code>) onto a shared mean shape.
+        <br /><br />
+        In linear-algebra language: each face is still a vector in $\mathbb{R}^{4096}$ after the
+        warp — the ambient dimension does not change. What the warp changes is the
+        <em>meaning of the coordinates</em>: entry $i$ of every $x_j$ is brightness at roughly
+        the same place on the face. Without that, entry $i$ might be an eye in one column of $X$
+        and a cheek in another, so the columns are not comparable as vectors in a shared basis.
+        The step that actually lowers dimension is truncated SVD: replace $x_j\in\mathbb{R}^{4096}$
+        by the $k$ coefficients $(c_{1j},\ldots,c_{kj})$, i.e. work in a $k$-dimensional
+        subspace. (Landmark / shape variation is modeled separately in the same literature; this
+        page’s $k$ is for the warped appearance vector.)
       </li>
       <li>
         <strong>Data.</strong>
@@ -183,6 +184,16 @@
         M. B. Stegmann, B. K. Ersbøll, and R. Larsen.
         FAME – a flexible appearance modelling environment.
         <cite>IEEE Trans. on Medical Imaging</cite>, 22(10):1319–1331, 2003.
+      </li>
+      <li>
+        <strong>Further reading.</strong>
+        Line up faces, then factor the appearance matrix — same idea as classical statistical
+        shape / appearance models. Next stops:
+        <a href="https://www.face-rec.org/algorithms/PCA/jcn.pdf" target="_blank" rel="noopener noreferrer">Turk &amp; Pentland, Eigenfaces</a>
+        (PCA on pixel vectors with no warp — the foil this page avoids);
+        <a href="https://www.cs.cmu.edu/~efros/courses/LBMV07/Papers/cootes-eccv-98.pdf" target="_blank" rel="noopener noreferrer">Cootes, Edwards &amp; Taylor, Active Appearance Models</a>
+        (shape alignment + appearance together);
+        and the IMM / FAME paper above for the landmarked data used here.
       </li>
     </ul>
   </section>

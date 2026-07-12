@@ -58,13 +58,19 @@ header p.repo a {
 header p {
   margin: 0;
   max-width: 42rem;
-  color: var(--muted);
   line-height: 1.45;
   font-size: 0.98rem;
 }
 
+/* Chrome only — chapter lead-ins use body ink so they read as prose. */
+header p.repo,
+header p.chapter-nav {
+  color: var(--muted);
+}
+
 header p.lede {
   max-width: 46rem;
+  color: var(--ink);
   line-height: 1.55;
 }
 

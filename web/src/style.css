@@ -183,6 +183,28 @@ header a {
   overflow-x: auto;
 }
 
+.build-readout {
+  margin: 0;
+  padding: 0.65rem 0.7rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  overflow-x: auto;
+  color: var(--ink);
+}
+
+.build-readout mjx-container {
+  margin: 0 !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.build-readout mjx-container[jax="CHTML"] {
+  font-size: 105% !important;
+}
+
 .build-main {
   display: grid;
   gap: 1rem;

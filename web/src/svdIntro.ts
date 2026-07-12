@@ -63,34 +63,18 @@ app.innerHTML = `
   <section class="theory" aria-label="Build a reflection">
     <h2>Building a reflection</h2>
     <p>
-      A reflection across a line through the origin is completely determined by a unit vector
-      $n$ perpendicular to that line (the <strong>normal</strong>).
+      Chapter 1’s rotations keep every length the same and never flip the plane.
+      A <strong>reflection</strong> is the other elementary length-preserving map: it keeps
+      lengths, but sends each point to its twin on the opposite side of a chosen line
+      (the <strong>mirror</strong>). Through the origin, that line is fixed by a single
+      direction — any unit vector $n$ perpendicular to the mirror, called the
+      <strong>normal</strong>. Flip $n$ to $-n$ and you describe the same mirror; what matters
+      is the line $n$ is orthogonal to.
     </p>
-    <ol class="theory-steps">
-      <li>
-        <p>
-          Split any $x$ into a part along $n$ and a part parallel to the mirror:
-          the normal piece is $(n^{\\top}x)\\,n$.
-        </p>
-      </li>
-      <li>
-        <p>
-          Reflecting keeps the parallel part and reverses the normal part — subtract the
-          normal piece twice:
-        </p>
-        <div class="math">
-          $$Hx = x - 2(n^{\\top}x)\\,n$$
-        </div>
-      </li>
-      <li>
-        <p>
-          As a matrix that is $H = I - 2nn^{\\top}$. Then $H^{\\top}H = I$ and $\\det H = -1$.
-        </p>
-      </li>
-    </ol>
-    <p class="demo-intro">
-      <strong>See the formula.</strong> Turn the mirror: green is $n$, blue is a fixed probe $x$,
-      orange is $Hx$. The readout is exactly $n^{\\top}x$ and $x - 2(n^{\\top}x)n$.
+    <p>
+      Once $n$ is chosen, reflecting a vector $x$ is a three-line geometric story.
+      First draw the mirror and its normal. The figure below uses the same slider for all
+      three panels: turn the orange mirror and the green normal $n$ turns with it.
     </p>
     <div class="controls">
       <div class="control-row">
@@ -98,14 +82,77 @@ app.innerHTML = `
           <span class="slider-label">Mirror angle (sets $n$) <strong id="buildAngVal">35°</strong></span>
           <input id="buildAng" type="range" min="-90" max="90" step="1" value="35" />
         </label>
-        <p class="help">Changing the mirror rotates $n$; $H$ and $Hx$ update from the formula above.</p>
+        <p class="help">One control for the whole construction below.</p>
       </div>
     </div>
     <p class="formula" id="buildFormula" aria-live="polite"></p>
+
     <div class="panel">
-      <h2>$n$, $x$, and $Hx$</h2>
-      <canvas id="buildCanvas" width="360" height="360" aria-label="Reflection construction"></canvas>
-      <p class="hint">Orange band = mirror ($\\perp n$). Green = $n$. Blue = $x$. Orange arrow = $Hx$.</p>
+      <h2>1 · Mirror and normal</h2>
+      <p>
+        The orange band is the mirror line through the origin. The green arrow is a unit
+        normal $n$ — length $1$, at right angles to the mirror. Every reflection we write
+        will be “bounce across this line,” which is the same data as “use this $n$.”
+      </p>
+      <canvas id="build1" width="300" height="300" aria-label="Mirror and normal"></canvas>
+      <p class="hint">Orange = mirror. Green = $n$. Gray = coordinate axes.</p>
+    </div>
+
+    <div class="panel">
+      <h2>2 · Split $x$ into parallel and normal pieces</h2>
+      <p>
+        Take any probe vector $x$ (blue). Drop a perpendicular from its tip onto the mirror.
+        The foot of that perpendicular is the part of $x$ that already lies in the mirror
+        direction — call it $x_{\\|}$. The leftover segment, from that foot out to the tip of
+        $x$, points exactly along $\\pm n$. Its signed length is the scalar $n^{\\top}x$, so the
+        leftover vector is
+      </p>
+      <div class="math">
+        $$x_{n} = (n^{\\top}x)\\,n.$$
+      </div>
+      <p>
+        Then $x = x_{\\|} + x_{n}$: the blue arrow is the vector sum of the purple
+        (parallel) piece and the green (normal) piece in the figure.
+      </p>
+      <canvas id="build2" width="300" height="300" aria-label="Decompose x"></canvas>
+      <p class="hint">Blue = $x$. Purple = $x_{\\|}$ along the mirror. Green stub = $x_n$ along $n$.</p>
+    </div>
+
+    <div class="panel">
+      <h2>3 · Keep the parallel part, reverse the normal part</h2>
+      <p>
+        Reflecting across the mirror means: leave $x_{\\|}$ alone, and send $x_{n}$ to $-x_{n}$.
+        The image is therefore $x_{\\|} - x_{n}$. Substituting $x_{n} = (n^{\\top}x)\\,n$ and
+        $x_{\\|} = x - x_{n}$ gives
+      </p>
+      <div class="math">
+        $$Hx = x_{\\|} - x_{n} = x - 2(n^{\\top}x)\\,n.$$
+      </div>
+      <p>
+        Geometrically you subtract the normal piece twice: once to cancel it, once to go the
+        same distance to the other side of the mirror. The orange arrow $Hx$ is the reflected
+        tip; the dashed segment shows the jump from $x$ to $Hx$. Lengths match:
+        $\\|Hx\\| = \\|x\\|$.
+      </p>
+      <canvas id="build3" width="300" height="300" aria-label="Reflect x to Hx"></canvas>
+      <p class="hint">Blue = $x$. Orange = $Hx$. Dashed = the normal flip.</p>
+    </div>
+
+    <div class="panel">
+      <h2>4 · Same rule as a matrix</h2>
+      <p>
+        The map $x \\mapsto x - 2(n^{\\top}x)\\,n$ is linear in $x$. Factoring gives the
+        familiar Householder matrix
+      </p>
+      <div class="math">
+        $$H = I - 2nn^{\\top}.$$
+      </div>
+      <p>
+        Because reflecting twice is the identity, $H^{2} = I$. Because reflections preserve
+        lengths and angles (up to orientation), $H$ is orthogonal: $H^{\\top}H = I$. The flip
+        of orientation shows up as $\\det H = -1$ — unlike the rotations from chapter 1, which
+        had determinant $+1$. From here on, “apply a reflection” means multiply by such an $H$.
+      </p>
     </div>
   </section>
 
@@ -441,7 +488,9 @@ const el = {
   mirPanel: app.querySelector<HTMLElement>("#mirPanel")!,
   buildAng: app.querySelector<HTMLInputElement>("#buildAng")!,
   buildAngVal: app.querySelector<HTMLElement>("#buildAngVal")!,
-  buildCanvas: app.querySelector<HTMLCanvasElement>("#buildCanvas")!,
+  build1: app.querySelector<HTMLCanvasElement>("#build1")!,
+  build2: app.querySelector<HTMLCanvasElement>("#build2")!,
+  build3: app.querySelector<HTMLCanvasElement>("#build3")!,
   buildFormula: app.querySelector<HTMLElement>("#buildFormula")!,
 
   aimAng: app.querySelector<HTMLInputElement>("#aimAng")!,
@@ -744,35 +793,76 @@ function clamp(x: number, lo: number, hi: number): number {
 const BUILD_PROBE: [number, number] = [1.1, 0.55];
 const NORMAL_COLOR = "#009E73";
 
+const DECOMP_COLOR = "#7B2D8E";
+
 function paintBuild(): void {
   const ang = Number(el.buildAng.value);
   el.buildAngVal.textContent = `${ang}°`;
   const [nx, ny] = normalFromLineAngle(ang);
   const H = householderFromNormal(nx, ny);
-  const [hx, hy] = applyMat2(H, BUILD_PROBE[0], BUILD_PROBE[1]);
-  const dot = nx * BUILD_PROBE[0] + ny * BUILD_PROBE[1];
+  const [x0, y0] = BUILD_PROBE;
+  const [hx, hy] = applyMat2(H, x0, y0);
+  const dot = nx * x0 + ny * y0;
+  const xn = dot * nx;
+  const yn = dot * ny;
+  const xp = x0 - xn;
+  const yp = y0 - yn;
 
   el.buildFormula.textContent =
     `n ≈ (${fmt(nx, 3)}, ${fmt(ny, 3)}) · ` +
     `nᵀx ≈ ${fmt(dot, 3)} · ` +
-    `Hx = x − 2(nᵀx)n ≈ (${fmt(hx, 3)}, ${fmt(hy, 3)})`;
+    `xₙ ≈ (${fmt(xn, 3)}, ${fmt(yn, 3)}) · ` +
+    `Hx ≈ (${fmt(hx, 3)}, ${fmt(hy, 3)})`;
 
-  paintCanvas(el.buildCanvas, 1.6, (ctx, cx, cy, scale) => {
-    drawMirrorLine(ctx, cx, cy, scale, ang, 1.6);
+  const extent = 1.6;
+
+  paintCanvas(el.build1, extent, (ctx, cx, cy, scale) => {
+    drawMirrorLine(ctx, cx, cy, scale, ang, extent);
     drawArrow(ctx, cx, cy, scale, nx, ny, NORMAL_COLOR, "n");
-    drawArrow(ctx, cx, cy, scale, BUILD_PROBE[0], BUILD_PROBE[1], ACCENT, "x");
-    drawArrow(ctx, cx, cy, scale, hx, hy, ACCENT2, "Hx");
-    // projection segment along n
-    ctx.strokeStyle = MUTED;
-    ctx.lineWidth = 1;
-    ctx.setLineDash([3, 3]);
+  });
+
+  paintCanvas(el.build2, extent, (ctx, cx, cy, scale) => {
+    drawMirrorLine(ctx, cx, cy, scale, ang, extent);
+    drawArrow(ctx, cx, cy, scale, xp, yp, DECOMP_COLOR, "x∥");
+    // normal piece from tip of parallel to tip of x
+    const [p0x, p0y] = toCanvas(cx, cy, scale, xp, yp);
+    const [p1x, p1y] = toCanvas(cx, cy, scale, x0, y0);
+    ctx.strokeStyle = NORMAL_COLOR;
+    ctx.fillStyle = NORMAL_COLOR;
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
-    const [px0, py0] = toCanvas(cx, cy, scale, BUILD_PROBE[0], BUILD_PROBE[1]);
-    const [px1, py1] = toCanvas(cx, cy, scale, hx, hy);
-    ctx.moveTo(px0, py0);
-    ctx.lineTo(px1, py1);
+    ctx.moveTo(p0x, p0y);
+    ctx.lineTo(p1x, p1y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(p1x, p1y, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.font = "600 12px DM Sans, system-ui, sans-serif";
+    ctx.fillText("xₙ", p1x + 6, p1y - 6);
+    drawArrow(ctx, cx, cy, scale, x0, y0, ACCENT, "x");
+    drawArrow(ctx, cx, cy, scale, nx * 0.55, ny * 0.55, NORMAL_COLOR, "n");
+  });
+
+  paintCanvas(el.build3, extent, (ctx, cx, cy, scale) => {
+    drawMirrorLine(ctx, cx, cy, scale, ang, extent);
+    drawArrow(ctx, cx, cy, scale, x0, y0, ACCENT, "x");
+    drawArrow(ctx, cx, cy, scale, hx, hy, ACCENT2, "Hx");
+    ctx.strokeStyle = MUTED;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    const [a0, a1] = toCanvas(cx, cy, scale, x0, y0);
+    const [b0, b1] = toCanvas(cx, cy, scale, hx, hy);
+    ctx.moveTo(a0, a1);
+    ctx.lineTo(b0, b1);
     ctx.stroke();
     ctx.setLineDash([]);
+    // midpoint on mirror (foot)
+    const [fx, fy] = toCanvas(cx, cy, scale, xp, yp);
+    ctx.fillStyle = MUTED;
+    ctx.beginPath();
+    ctx.arc(fx, fy, 3.5, 0, Math.PI * 2);
+    ctx.fill();
   });
 }
 

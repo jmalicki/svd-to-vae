@@ -4,8 +4,8 @@ export type NavLink = { href: string; label: string };
 
 const STRIP: { href: string; label: string; n: 1 | 2 | 3 | 4 | 5 | 6 }[] = [
   { n: 1, href: "./", label: "Matrix" },
-  { n: 2, href: "./svd.html", label: "Reflections" },
-  { n: 3, href: "./truncate.html", label: "Decomposition" },
+  { n: 2, href: "./reflections.html", label: "Reflections" },
+  { n: 3, href: "./svd.html", label: "Decomposition" },
   { n: 4, href: "./faces.html", label: "Faces" },
   { n: 5, href: "./gradient.html", label: "Gradient" },
   { n: 6, href: "./noise.html", label: "Sampling" },

@@ -25,7 +25,7 @@ const app = document.querySelector<HTMLDivElement>("#app")!;
 mountPage(app, pageHtml, {
   nav: chapterNav({
     current: 3,
-    prev: { href: "./svd.html", label: "← Reflections" },
+    prev: { href: "./reflections.html", label: "← Reflections" },
     next: { href: "./faces.html", label: "Next →" },
   }),
 });

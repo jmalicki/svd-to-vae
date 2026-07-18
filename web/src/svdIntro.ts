@@ -40,7 +40,7 @@ mountPage(app, pageHtml, {
   nav: chapterNav({
     current: 2,
     prev: { href: "./", label: "← Matrix" },
-    next: { href: "./truncate.html", label: "Next →" },
+    next: { href: "./svd.html", label: "Next →" },
   }),
 });
 

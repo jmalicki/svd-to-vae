@@ -23,7 +23,7 @@ declare global {
 const app = document.querySelector<HTMLDivElement>("#app")!;
 
 mountPage(app, pageHtml, {
-  nav: chapterNav({ current: 1, next: { href: "./svd.html", label: "Next →" } }),
+  nav: chapterNav({ current: 1, next: { href: "./reflections.html", label: "Next →" } }),
 });
 
 type Factors = AngleFactors;

@@ -17,6 +17,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: path.resolve(root, "index.html"),
+        reflections: path.resolve(root, "reflections.html"),
         svd: path.resolve(root, "svd.html"),
         truncate: path.resolve(root, "truncate.html"),
         faces: path.resolve(root, "faces.html"),

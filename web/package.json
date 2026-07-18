@@ -14,7 +14,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:ringing": "npm run gen:ringing"
+    "test:ringing": "npm run gen:ringing",
+    "test:seeds": "vite-node scripts/seed-sweep.ts"
   },
   "dependencies": {
     "delaunator": "^5.1.0",

@@ -1,6 +1,7 @@
 import "./style.css";
 import { chapterNav } from "./chapterNav";
 import { mountPage } from "./mountPage";
+import { SITE, TOUR_URL } from "./site";
 import pageHtml from "./pages/gradient.html?raw";
 import { classicalSvd, type SvdResult } from "./classicalSvd";
 import {
@@ -27,12 +28,22 @@ declare global {
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 
-mountPage(app, pageHtml, {
-  nav: chapterNav({
-    current: 5,
-    prev: { href: "./faces.html", label: "← Faces" },
-    next: { href: "./noise.html", label: "Next →" },
-  }),
+// On the standalone svd-grad site this page is the whole site: swap the
+// chapter strip for a pointer to the tour and send chapter links there.
+const nav =
+  SITE === "grad"
+    ? `<p class="chapter-nav">Standalone demo ·
+        <a href="${TOUR_URL}gradient.html">Part of the SVD-to-VAE tour →</a></p>`
+    : chapterNav({
+        current: 5,
+        prev: { href: "./faces.html", label: "← Faces" },
+        next: { href: "./noise.html", label: "Next →" },
+      });
+
+const html = SITE === "grad" ? pageHtml.replaceAll('href="./', `href="${TOUR_URL}`) : pageHtml;
+
+mountPage(app, html, {
+  nav,
   baseUrl: import.meta.env.BASE_URL,
 });
 

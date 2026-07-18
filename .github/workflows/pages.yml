@@ -35,8 +35,12 @@ jobs:
       - name: Build site
         run: npx tsc --noEmit && npx vite build
         env:
-          # Project site: https://jmalicki.github.io/svd-to-vae/
-          VITE_BASE: /svd-to-vae/
+          # One repo, two Pages sites. The same commit is pushed to both
+          # jmalicki/svd-to-vae (six-chapter tour) and jmalicki/svd-grad
+          # (standalone gradient-descent demo); the repo this workflow runs
+          # in selects the variant and base path.
+          VITE_BASE: /${{ github.event.repository.name }}/
+          VITE_SITE: ${{ github.event.repository.name == 'svd-grad' && 'grad' || 'tour' }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: web/dist

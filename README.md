@@ -15,9 +15,26 @@ Live: [https://jmalicki.github.io/svd-to-vae/](https://jmalicki.github.io/svd-to
 | 5 | [`/gradient.html`](https://jmalicki.github.io/svd-to-vae/gradient.html) | Recover factors by gradient descent |
 | 6 | [`/noise.html`](https://jmalicki.github.io/svd-to-vae/noise.html) | Noise in the bottleneck codes |
 
+## Two sites, one repo
+
 The standalone GD demo that started this work still lives at
 [svd-grad](https://jmalicki.github.io/svd-grad/)
-([repo](https://github.com/jmalicki/svd-grad)).
+([repo](https://github.com/jmalicki/svd-grad)) and is built **from this same
+codebase**: the same commit is pushed to both `jmalicki/svd-to-vae` and
+`jmalicki/svd-grad`, and each repo's Pages workflow builds its own variant.
+
+- `VITE_SITE=tour` (default) builds all six chapters — deployed to
+  `jmalicki.github.io/svd-to-vae/`.
+- `VITE_SITE=grad` builds only the gradient chapter, serves it as
+  `index.html`, drops the 37 MB IMM face pack, and points its chapter links
+  at the tour — deployed to `jmalicki.github.io/svd-grad/`.
+
+The workflow picks the variant from the repository name
+(`.github/workflows/pages.yml`), so keeping both sites fresh is just:
+
+```bash
+git push          # origin is configured with both push URLs
+```
 
 ## Local
 

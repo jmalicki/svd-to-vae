@@ -518,6 +518,34 @@
       After QR, that scalar is still a valid summary of “how big were the gradients?” — there is
       no per-entry buffer left pointing at the wrong column.
     </p>
+
+    <h3>Why rescaling is the desideratum (and why $\eta_t$ climbs)</h3>
+    <p>
+      What we actually want to control is not $\eta_t$ but the <em>displacement</em> per step,
+      $\Delta\theta = -\eta_t\,g$. Measure it in RMS over entries:
+    </p>
+    <div class="math">
+      $$\|\Delta\theta\|_{\mathrm{rms}}
+        = \eta_t\sqrt{\bar g^{2}}
+        = \eta_0\,\frac{\sqrt{\bar g^{2}}}{\sqrt{v^{\dagger}}+\sqrt{v_{\mathrm{fp}}}}
+        \;\approx\; \eta_0
+        \qquad\text{while } v^{\dagger}\approx\bar g^{2}\gg v_{\mathrm{fp}}.$$
+    </div>
+    <p>
+      The gradient supplies the <em>direction</em>; the slider sets how far to move. For that to
+      hold, $\eta_t$ must scale like $1/\sqrt{\bar g^{2}}$ — so as training approaches the
+      Eckart–Young floor and gradients decay, the status-line $\eta_t$ <em>rises</em> step after
+      step. That climb is not a runaway schedule; it is the normalizer canceling the shrinking
+      $g$ so the displacement stays pinned near $\eta_0$. Without it, raw SGD steps
+      $\eta_0 g$ would shrink with $g$ and the run would crawl long before reaching the floor.
+    </p>
+    <p>
+      Two brakes keep the cancellation from overshooting: the float64 floor
+      $v_{\mathrm{fp}}$ caps $\eta_t$ once gradient energy is numerical noise (so steps finally
+      <em>do</em> shrink with $g$), and the Armijo backtracking scales the accepted step by
+      $\alpha\le 1$ whenever a full step would raise the loss. The intuitive “learning rate” near
+      convergence is $\alpha\,\eta_t$, not $\eta_t$ alone.
+    </p>
     <p class="theory-note">
       The definition of $v^{\dagger}$ (floors on today’s $\bar g^{2}$ and a float64 noise level)
       is a separate issue from “per-entry vs global.” See
@@ -541,7 +569,9 @@
         \theta \leftarrow \theta - \eta_t\,\nabla L.$$
     </div>
     <p>
-      The base rate $\eta_0$ is the slider; the status line shows the live $\eta_t$.
+      The base rate $\eta_0$ is the slider; the status line shows the live $\eta_t$, which
+      <em>increases</em> as gradients decay — expected, not a bug; see
+      <a href="#appendix-adam">why rescaling is the desideratum</a>.
       Why not just use $\hat v$ in the denominator? Two failure modes, and neither is fixed by
       “regularizing” with $\eta_t\le\eta_0$. After the Euclidean step we still QR-retract, and we
       may shrink the step further — see

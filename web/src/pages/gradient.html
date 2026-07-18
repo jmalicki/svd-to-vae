@@ -618,18 +618,60 @@
       $\bar g^{2}$ caps $\|g\|_{\mathrm{rms}}/\sqrt{v^{\dagger}}$ at about $1$, so that bounce
       never gets armed.
     </p>
+
+    <h3>Ablation: what the floor fixes vs what Armijo fixes</h3>
+    <p>
+      The optimizer stacks two safeguards — the $v^{\dagger}$ floor and
+      <a href="#appendix-vfloor-armijo">Armijo backtracking on the QR retract</a> — and they
+      guard against <em>different</em> failures. The figure below runs the same problem four
+      ways, toggling each safeguard independently.
+    </p>
     <figure class="ring-figure">
-      <img src="{{BASE_URL}}ringing-floor.svg" width="560" height="220"
-        alt="Measured log ‖Â_svd − Â_gd‖²: floored global-RMS settles; unfloored rings" />
+      <img src="{{BASE_URL}}ringing-floor.svg" width="560" height="232"
+        alt="Measured log ‖Â_svd − Â_gd‖², 2×2 ablation: v† floor and Armijo toggled independently" />
       <figcaption>
         Measured Node run (<code>npm run gen:ringing</code>, also a build prerequisite): same
-        $A$, init, and base $\eta_0$; blue uses floored $v^{\dagger}$ plus Armijo on the QR
-        retract, amber uses unfloored $\eta_t=\eta_0/(\sqrt{\hat v}+10^{-8})$ with no line
-        search. Both curves are $\|\hat A_{\mathrm{svd}}-\hat A_{\mathrm{gd}}\|_F^{2}$
-        (log scale). The build <em>fails</em> if amber does not ring, or if blue does not stay
-        near the Eckart–Young gap.
+        $A$, init, and base $\eta_0$ in all four runs; only the $v^{\dagger}$ floor and the
+        Armijo line search are toggled. The unfloored runs use
+        $\eta_t=\eta_0/(\sqrt{\hat v}+10^{-8})$. Every curve is
+        $\|\hat A_{\mathrm{svd}}-\hat A_{\mathrm{gd}}\|_F^{2}$ (log scale). The build
+        <em>fails</em> if the neither-safeguard run does not ring, or if floor+Armijo does not
+        stay near the Eckart–Young gap.
       </figcaption>
     </figure>
+    <p>
+      Read it by columns of the $2\times 2$:
+    </p>
+    <ul>
+      <li>
+        <strong>Amber, neither safeguard:</strong> both failures at once. The unfloored
+        $\eta_t$ overshoots and the gap rings, and the run finally parks at a worse critical
+        point, far above the Eckart–Young gap.
+      </li>
+      <li>
+        <strong>Green, floor only:</strong> the ringing is gone — comparing amber to green
+        isolates the floor’s contribution, which is purely about step <em>length</em>. But at
+        about the same step the run still leaves the descent path and settles at the same bad
+        critical point: a bounded step says nothing about whether the QR retraction actually
+        lowered the loss.
+      </li>
+      <li>
+        <strong>Vermillion, Armijo only:</strong> lands on the Eckart–Young gap and stays
+        (it overlaps blue). Comparing green to blue — or amber to vermillion — isolates
+        Armijo’s contribution: it vetoes retracted steps that raise the loss, which is what
+        prevents the walk-away.
+      </li>
+      <li>
+        <strong>Blue, floor + Armijo (the live demo):</strong> on this small problem Armijo
+        alone happens to contain the unfloored $\eta_t$ too, so why keep the floor? Because
+        that containment is an accident of the backtracking budget. Unfloored,
+        $\eta_t=\eta_0/\sqrt{\hat v}$ grows without bound as $\hat v$ decays, while
+        $12$ halvings can shrink a proposal by at most $2^{12}\approx 4000\times$ — and each
+        halving costs a full loss evaluation. The floor bounds the <em>proposed</em> step by
+        construction, so the line search stays a veto on retraction mischief instead of the
+        emergency mechanism that sets the step size.
+      </li>
+    </ul>
 
     <p>
       Requiring $v^{\dagger}\ge\bar g^{2}$ means we never precondition with a second moment
@@ -672,8 +714,9 @@
       Flooring $v$ stops $\eta$-blow-up ringing, but it does not make each QR step decrease
       the reconstruction loss. The update is Euclidean descent followed by thin QR; that
       retraction can move $\hat A$ enough that the loss goes up even when $\nabla L$ pointed
-      downhill. Empirically, a floored run can reach the truncated-SVD reconstruction
-      (amber gap near zero) and then drift to a worse critical point.
+      downhill. The green floor-only curve in the ablation figure above shows exactly this:
+      steps of a sane length, taken without checking the loss, walk off the descent path and
+      settle at a worse critical point.
     </p>
     <p>
       After $\eta_t$ is fixed, we therefore

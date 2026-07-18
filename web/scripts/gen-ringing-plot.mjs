@@ -1,9 +1,8 @@
 /**
- * Build-time demo: global-RMS SGD with vs without the v† floor.
- * Floored path also uses Armijo on the QR retract (matches the live demo).
- * Plots ‖Â_svd − Â_gd‖_F² (the amber curve in the live demo).
- * Writes public/ringing-floor.svg and exits nonzero if the unfloored run does not ring
- * or the floored+Armijo run fails to stay near the Eckart–Young gap.
+ * Build-time ablation: global-RMS SGD, 2×2 over {v† floor on/off} × {Armijo on/off}.
+ * Plots ‖Â_svd − Â_gd‖_F² (the amber curve in the live demo) for all four runs.
+ * Writes public/ringing-floor.svg and exits nonzero if the neither-fix run does not
+ * ring or the floored+Armijo run fails to stay near the Eckart–Young gap.
  *
  * Run: node scripts/gen-ringing-plot.mjs
  */
@@ -237,7 +236,7 @@ function mseFrom(A, U, raw, V) {
 }
 
 /** Returns series of ‖Â_svd − Â_gd‖_F² after each step. */
-function train(A, Asvd, floor, seed) {
+function train(A, Asvd, { floor, armijo }, seed) {
   const rand = mulberry32(seed);
   const m = A.rows;
   const n = A.cols;
@@ -253,6 +252,10 @@ function train(A, Asvd, floor, seed) {
   const vFp = gradSecondMomentFpFloor(maxAbs(A));
   let vMom = 0;
   const vsSvd = [];
+  let btTotal = 0;
+  let btEarly = 0;
+  let alphaLogSum = 0;
+  let armijoSteps = 0;
 
   for (let t = 1; t <= STEPS; t++) {
     const { gU, gV, gRaw, Ahat } = grads(A, U, Array.from(raw), V);
@@ -283,7 +286,7 @@ function train(A, Asvd, floor, seed) {
     const sumSq = meanSq * (gU.data.length + gV.data.length + gRaw.length);
     const dirDeriv = -eta * sumSq;
 
-    const maxBt = floor ? 12 : 0; // Armijo only on floored path (matches the demo)
+    const maxBt = armijo ? 12 : 0;
     if (maxBt === 0) {
       for (let i = 0; i < U.data.length; i++) U.data[i] -= eta * gU.data[i];
       for (let i = 0; i < V.data.length; i++) V.data[i] -= eta * gV.data[i];
@@ -294,16 +297,19 @@ function train(A, Asvd, floor, seed) {
       let alpha = 1;
       let chosen = null;
       let bestDescent = null;
+      armijoSteps++;
       for (let bt = 0; bt < maxBt; bt++) {
+        btTotal++;
+        if (t <= STEPS / 3) btEarly++;
         const Utry = thinQ(addScaledMat(U, gU, -alpha * eta));
         const Vtry = thinQ(addScaledMat(V, gV, -alpha * eta));
         const rawTry = Float64Array.from(raw, (r, i) => r - alpha * eta * gRaw[i]);
         const mseTry = mseFrom(A, Utry, rawTry, Vtry);
         if (!bestDescent || mseTry < bestDescent.L) {
-          bestDescent = { U: Utry, V: Vtry, raw: rawTry, L: mseTry };
+          bestDescent = { U: Utry, V: Vtry, raw: rawTry, L: mseTry, alpha };
         }
         if (mseTry <= mse0 + 1e-4 * alpha * dirDeriv) {
-          chosen = { U: Utry, V: Vtry, raw: rawTry };
+          chosen = { U: Utry, V: Vtry, raw: rawTry, alpha };
           break;
         }
         alpha *= 0.5;
@@ -315,11 +321,17 @@ function train(A, Asvd, floor, seed) {
         U = chosen.U;
         V = chosen.V;
         raw = chosen.raw;
+        alphaLogSum += Math.log2(chosen.alpha);
       }
     }
   }
 
-  return vsSvd;
+  return {
+    series: vsSvd,
+    meanAlphaLog2: armijoSteps ? alphaLogSum / armijoSteps : 0,
+    meanBt: armijoSteps ? btTotal / armijoSteps : 0,
+    meanBtEarly: armijoSteps ? btEarly / Math.floor(STEPS / 3) : 0,
+  };
 }
 
 /**
@@ -418,8 +430,8 @@ function toPath(series, x0, x1, y0, y1, yLog) {
   return pts.join(" ");
 }
 
-function renderSvg(floored, unfloored) {
-  const all = floored.concat(unfloored).concat([1e-18]);
+function renderSvg(runs) {
+  const all = runs.flatMap((r) => r.series).concat([1e-18]);
   let lo = Infinity;
   let hi = -Infinity;
   for (const L of all) {
@@ -431,31 +443,50 @@ function renderSvg(floored, unfloored) {
   const yLog = { min: lo - pad, max: hi + pad };
 
   const W = 560;
-  const H = 220;
+  const H = 232;
   const x0 = 56;
   const x1 = 540;
-  const y0 = 28;
-  const y1 = 175;
+  const y0 = 40;
+  const y1 = 187;
 
-  const pathFloor = toPath(floored, x0, x1, y0, y1, yLog);
-  const pathRaw = toPath(unfloored, x0, x1, y0, y1, yLog);
+  const paths = runs
+    .slice()
+    .sort((a, b) => a.drawOrder - b.drawOrder)
+    .map(
+      (r) =>
+        `  <path d="${toPath(r.series, x0, x1, y0, y1, yLog)}" fill="none" ` +
+        `stroke="${r.color}" stroke-width="${r.width}"${r.dash ? ` stroke-dasharray="${r.dash}"` : ""}/>`,
+    )
+    .join("\n");
+
+  let legendX = x0;
+  const legend = runs
+    .slice()
+    .reverse()
+    .map((r) => {
+      const lineX = legendX;
+      const textX = legendX + 26;
+      legendX += 26 + 7 * r.label.length + 16;
+      return (
+        `  <line x1="${lineX}" y1="18" x2="${lineX + 20}" y2="18" stroke="${r.color}" ` +
+        `stroke-width="${r.width}"${r.dash ? ` stroke-dasharray="${r.dash}"` : ""}/>\n` +
+        `  <text x="${textX}" y="22" fill="#2d2d2d" font-size="11" font-family="DM Sans, system-ui, sans-serif">${r.label}</text>`
+      );
+    })
+    .join("\n");
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"
-  role="img" aria-label="Measured ‖Â_svd − Â_gd‖_F² with and without second-moment floor">
+  role="img" aria-label="Measured ‖Â_svd − Â_gd‖_F², 2×2 ablation over v† floor and Armijo backtracking">
   <rect width="${W}" height="${H}" fill="#fafafa"/>
   <line x1="${x0}" y1="${y0}" x2="${x0}" y2="${y1}" stroke="#2d2d2d" stroke-width="1.25"/>
   <line x1="${x0}" y1="${y1}" x2="${x1}" y2="${y1}" stroke="#2d2d2d" stroke-width="1.25"/>
-  <text x="16" y="118" fill="#6b6b6b" font-size="11" font-family="IBM Plex Mono, ui-monospace, monospace"
-    transform="rotate(-90 16 118)">‖Â_svd−Â_gd‖² (log)</text>
-  <text x="${(x0 + x1) / 2}" y="208" fill="#6b6b6b" font-size="11"
+  <text x="16" y="130" fill="#6b6b6b" font-size="11" font-family="IBM Plex Mono, ui-monospace, monospace"
+    transform="rotate(-90 16 130)">‖Â_svd−Â_gd‖² (log)</text>
+  <text x="${(x0 + x1) / 2}" y="203" fill="#6b6b6b" font-size="11"
     font-family="IBM Plex Mono, ui-monospace, monospace" text-anchor="middle">step</text>
-  <path d="${pathRaw}" fill="none" stroke="#E69F00" stroke-width="2"/>
-  <path d="${pathFloor}" fill="none" stroke="#0072B2" stroke-width="2.25"/>
-  <line x1="64" y1="18" x2="86" y2="18" stroke="#0072B2" stroke-width="2.25"/>
-  <text x="92" y="22" fill="#2d2d2d" font-size="11" font-family="DM Sans, system-ui, sans-serif">with v† floor</text>
-  <line x1="220" y1="18" x2="242" y2="18" stroke="#E69F00" stroke-width="2"/>
-  <text x="248" y="22" fill="#2d2d2d" font-size="11" font-family="DM Sans, system-ui, sans-serif">unfloored η=η₀/√v̂</text>
+${paths}
+${legend}
   <text x="${x0}" y="${H - 6}" fill="#8a8a8a" font-size="9"
     font-family="IBM Plex Mono, ui-monospace, monospace">n=${N} k=${K} steps=${STEPS} lr=${BASE_LR} seed=${SEED} · generated by scripts/gen-ringing-plot.mjs</text>
 </svg>
@@ -467,21 +498,37 @@ function main() {
   const A = randn(rand, N, N, 1);
   const Asvd = truncSvd(A, K);
 
-  const floored = train(A, Asvd, true, SEED + 1);
-  const unfloored = train(A, Asvd, false, SEED + 1);
+  const both = train(A, Asvd, { floor: true, armijo: true }, SEED + 1);
+  const floorOnly = train(A, Asvd, { floor: true, armijo: false }, SEED + 1);
+  const armijoOnly = train(A, Asvd, { floor: false, armijo: true }, SEED + 1);
+  const neither = train(A, Asvd, { floor: false, armijo: false }, SEED + 1);
 
-  const ring = assertRings(unfloored);
-  const settled = assertSettles(floored, unfloored);
+  const ring = assertRings(neither.series);
+  const settled = assertSettles(both.series, neither.series);
 
   mkdirSync(path.dirname(OUT), { recursive: true });
-  writeFileSync(OUT, renderSvg(floored, unfloored));
+  // Array order (reversed) sets the legend; drawOrder sets z-stacking. Dashed
+  // Armijo-only draws above solid blue so their overlap at the EY gap stays visible.
+  writeFileSync(
+    OUT,
+    renderSvg([
+      { series: neither.series, color: "#E69F00", width: 2, label: "neither", drawOrder: 0 },
+      { series: armijoOnly.series, color: "#D55E00", width: 1.75, dash: "5 3", label: "Armijo only", drawOrder: 3 },
+      { series: floorOnly.series, color: "#009E73", width: 1.75, dash: "5 3", label: "v† floor only", drawOrder: 1 },
+      { series: both.series, color: "#0072B2", width: 2.25, label: "floor+Armijo", drawOrder: 2 },
+    ]),
+  );
 
+  const tail = (r) => r.series[r.series.length - 1].toExponential(2);
   console.log(
     `wrote ${OUT}\n` +
       `  metric: ‖Â_svd − Â_gd‖_F²\n` +
-      `  unfloored rings: peaks=${ring.peaks} relSwing=${ring.relSwing.toFixed(2)}\n` +
-      `  floored settles: relSwing=${settled.relSwing.toFixed(3)} final=${settled.finalL.toExponential(3)} ` +
-      `uSwing=${settled.uSwing.toExponential(3)}`,
+      `  neither rings: peaks=${ring.peaks} relSwing=${ring.relSwing.toFixed(2)}\n` +
+      `  floored+Armijo settles: relSwing=${settled.relSwing.toFixed(3)} final=${settled.finalL.toExponential(3)}\n` +
+      `  final gaps: both=${tail(both)} floorOnly=${tail(floorOnly)} armijoOnly=${tail(armijoOnly)} neither=${tail(neither)}\n` +
+      `  Armijo effort: both mean α=2^${both.meanAlphaLog2.toFixed(2)} bt/step=${both.meanBt.toFixed(2)} ` +
+      `(early ${both.meanBtEarly.toFixed(2)}) · armijoOnly mean α=2^${armijoOnly.meanAlphaLog2.toFixed(2)} ` +
+      `bt/step=${armijoOnly.meanBt.toFixed(2)} (early ${armijoOnly.meanBtEarly.toFixed(2)})`,
   );
 }
 

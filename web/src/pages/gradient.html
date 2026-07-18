@@ -261,7 +261,9 @@
         <button id="play" type="button">Pause</button>
         <button id="reset" class="secondary" type="button">Reset</button>
       </div>
-      <p class="help">Pause freezes training. Reset draws a new <code>A</code>, recomputes SVD, and re-inits GD.</p>
+      <p class="help">Pause freezes training. Reset draws a new <code>A</code>, recomputes SVD, and re-inits GD.
+        The status line shows the run’s random seed; open <code>?seed=…</code> to replay a run
+        (e.g. one that stalls at a bad critical point).</p>
       <div class="status" id="status">step 0</div>
     </div>
   </div>

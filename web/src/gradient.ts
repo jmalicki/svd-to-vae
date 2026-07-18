@@ -12,6 +12,7 @@ import {
 } from "./svdGrad";
 import {
   type Matrix,
+  mulberry32,
   randomNormal,
   reconstruct,
   maxAbs,
@@ -79,7 +80,7 @@ const el = {
 
 let A: Matrix;
 let svd: SvdResult;
-let trainer = new SvdGradTrainer();
+const trainer = new SvdGradTrainer();
 let gd: GradState;
 let history: LossPoint[] = [];
 let playing = true;
@@ -89,6 +90,29 @@ let sigmaScale = 1;
 let svdFloor = 0;
 let svdReconMat: Matrix;
 let gpuOk = false;
+
+// One 32-bit seed reproduces the whole run (A, the U/raw/V init, and hence
+// every step). Shown in the status line; ?seed=… in the URL replays a run.
+let seed = 0;
+let pendingSeed = seedFromUrl();
+
+function newSeed(): number {
+  return (Math.random() * 0x100000000) >>> 0;
+}
+
+function seedFromUrl(): number | null {
+  const raw = new URLSearchParams(window.location.search).get("seed");
+  if (raw === null || raw.trim() === "") return null;
+  const s = Number(raw);
+  return Number.isFinite(s) ? s >>> 0 : null;
+}
+
+/** Keep the address bar in sync so the current run is always copyable. */
+function publishSeed(): void {
+  const url = new URL(window.location.href);
+  url.searchParams.set("seed", String(seed));
+  window.history.replaceState(null, "", url);
+}
 
 /** Log-spaced matrix sizes for the n slider (index → n). */
 const SIZE_STOPS = [3, 4, 5, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48, 64];
@@ -130,11 +154,14 @@ function clamp(x: number, lo: number, hi: number): number {
 
 function reset(newA: boolean): void {
   const { n, k, device, lr } = readControls();
-  if (newA) {
-    A = randomNormal(n, n, 1);
-  } else if (!A || A.rows !== n) {
-    A = randomNormal(n, n, 1);
+  if (newA || !A || A.rows !== n) {
+    seed = pendingSeed ?? newSeed();
+    pendingSeed = null;
   }
+  publishSeed();
+  // Regenerate A from the seed even when it is unchanged (same seed, same n
+  // ⇒ identical A), so seed alone always determines the run.
+  A = randomNormal(n, n, 1, mulberry32(seed));
   svd = classicalSvd(A, k);
   svdReconMat = reconstruct(svd.U, svd.sigma, svd.V);
   sharedScale = Math.max(maxAbs(A), maxAbs(svdReconMat), 1e-6);
@@ -153,11 +180,13 @@ function reset(newA: boolean): void {
     el.status.textContent = "GPU unavailable — using CPU";
   }
 
+  // Separate stream for the U/raw/V init so it does not depend on how many
+  // draws A consumed (and can be replayed identically on the CPU fallback).
   try {
-    trainer.init(A, k, lr, useDevice);
+    trainer.init(A, k, lr, useDevice, mulberry32(seed ^ 0x9e3779b9));
   } catch (e) {
     console.warn("init failed on", useDevice, e);
-    trainer.init(A, k, lr, "cpu");
+    trainer.init(A, k, lr, "cpu", mulberry32(seed ^ 0x9e3779b9));
     el.device.value = "cpu";
   }
 
@@ -232,7 +261,7 @@ function paintSigmaTable(): void {
 function updateStatus(): void {
   const { steps } = readControls();
   const eta = gd.lr.toExponential(2);
-  el.status.textContent = `step ${gd.step} · ${gd.device} · ${steps}/frame · η=${eta} · L=${gd.loss.recon.toExponential(3)}`;
+  el.status.textContent = `step ${gd.step} · ${gd.device} · ${steps}/frame · η=${eta} · L=${gd.loss.recon.toExponential(3)} · seed=${seed}`;
 }
 
 function frame(): void {

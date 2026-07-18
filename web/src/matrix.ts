@@ -91,11 +91,33 @@ export function diag(values: number[]): Matrix {
   return D;
 }
 
-export function randomNormal(rows: number, cols: number, scale = 1): Matrix {
+/**
+ * Mulberry32: deterministic PRNG so a displayed 32-bit seed reproduces a run.
+ * Chosen because JS has no seedable built-in, the whole state is one integer
+ * (fits in a status line / URL param), it passes gjrand over its full 2³²
+ * period — plenty for demo inits — and it matches the generator already used
+ * by scripts/gen-ringing-plot.mjs, so seeds mean the same thing everywhere.
+ */
+export function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export function randomNormal(
+  rows: number,
+  cols: number,
+  scale = 1,
+  rand: () => number = Math.random,
+): Matrix {
   const m = mat(rows, cols);
   for (let i = 0; i < m.data.length; i++) {
-    const u = Math.max(1e-12, Math.random());
-    const v = Math.random();
+    const u = Math.max(1e-12, rand());
+    const v = rand();
     m.data[i] = scale * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
   }
   return m;

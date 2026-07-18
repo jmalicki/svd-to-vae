@@ -173,7 +173,13 @@ function fullSum(t: AnyTensor): AnyTensor {
 export class SvdGradTrainer {
   private t: Trainables | null = null;
 
-  init(A: Matrix, rank: number, lr: number, device: DeviceKind): void {
+  init(
+    A: Matrix,
+    rank: number,
+    lr: number,
+    device: DeviceKind,
+    rand: () => number = Math.random,
+  ): void {
     const m = A.rows;
     const n = A.cols;
     const k = Math.max(1, Math.min(rank, Math.min(m, n)));
@@ -181,9 +187,9 @@ export class SvdGradTrainer {
     const U = torch.randn([m, k], true, false, device) as unknown as AnyTensor;
     const rawSigma = torch.randn([k], true, false, device) as unknown as AnyTensor;
     const V = torch.randn([n, k], true, false, device) as unknown as AnyTensor;
-    scaleNestedInPlace(U.data, 0.3);
-    scaleNestedInPlace(rawSigma.data, 0.3);
-    scaleNestedInPlace(V.data, 0.3);
+    fillNestedNormal(U.data, 0.3, rand);
+    fillNestedNormal(rawSigma.data, 0.3, rand);
+    fillNestedNormal(V.data, 0.3, rand);
     retractInPlace(U, m, k);
     retractInPlace(V, n, k);
 
@@ -418,12 +424,18 @@ function flatList(data: unknown): number[] {
   return out;
 }
 
-function scaleNestedInPlace(data: unknown, scale: number): void {
+/** Overwrite a nested tensor buffer with N(0, scale²) draws from `rand`. */
+function fillNestedNormal(data: unknown, scale: number, rand: () => number): void {
   if (!Array.isArray(data)) return;
   for (let i = 0; i < data.length; i++) {
     const el = data[i];
-    if (typeof el === "number") (data as number[])[i] = el * scale;
-    else scaleNestedInPlace(el, scale);
+    if (typeof el === "number") {
+      const u = Math.max(1e-12, rand());
+      const v = rand();
+      (data as number[])[i] = scale * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    } else {
+      fillNestedNormal(el, scale, rand);
+    }
   }
 }
 

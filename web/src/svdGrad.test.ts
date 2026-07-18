@@ -5,23 +5,13 @@ import {
   get,
   mat,
   matmul,
+  mulberry32,
   reconstruct,
   sub,
   thinQ,
   transpose,
 } from "./matrix";
 import { SvdGradTrainer } from "./svdGrad";
-
-function mulberry32(seed: number) {
-  let a = seed >>> 0;
-  return () => {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 function randnMat(rows: number, cols: number, rand: () => number, scale = 1) {
   const A = mat(rows, cols);
@@ -115,6 +105,24 @@ describe("SvdGradTrainer", () => {
       }
       expect(ok).toBe(true);
     }
+  });
+
+  it("reproduces a run bit-for-bit from a seeded init", () => {
+    const A = lowRankA(6, 2, 5);
+    const t1 = new SvdGradTrainer();
+    const t2 = new SvdGradTrainer();
+    t1.init(A, 2, 0.05, "cpu", mulberry32(123));
+    t2.init(A, 2, 0.05, "cpu", mulberry32(123));
+    for (let i = 0; i < 25; i++) {
+      t1.stepOnce();
+      t2.stepOnce();
+    }
+    const s1 = t1.snapshot(A);
+    const s2 = t2.snapshot(A);
+    expect(Array.from(s1.U.data)).toEqual(Array.from(s2.U.data));
+    expect(Array.from(s1.V.data)).toEqual(Array.from(s2.V.data));
+    expect(s1.sigma).toEqual(s2.sigma);
+    expect(s1.loss.recon).toBe(s2.loss.recon);
   });
 
   it("preserves orthonormal U and V after QR-retracted steps", () => {

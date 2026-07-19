@@ -6,6 +6,7 @@ import {
   mat,
   matmul,
   mulberry32,
+  randomNormal,
   reconstruct,
   sub,
   thinQ,
@@ -123,6 +124,27 @@ describe("SvdGradTrainer", () => {
     expect(Array.from(s1.V.data)).toEqual(Array.from(s2.V.data));
     expect(s1.sigma).toEqual(s2.sigma);
     expect(s1.loss.recon).toBe(s2.loss.recon);
+  });
+
+  it("does not freeze on seeds that stalled without tangent projection", () => {
+    // Regression for the ~8% Armijo-freeze failure mode: with the raw Euclidean
+    // gradient fed through the QR retraction, these page seeds (n=5, k=3,
+    // lr=0.01 — exact gradient.html?seed=… replays) rejected every step from
+    // ~step 200 on and parked at 20–50% relative gap above the Eckart–Young
+    // floor. Projecting U/V grads onto the Stiefel tangent space fixes them.
+    for (const seed of [1604623524, 3401442139]) {
+      const A = randomNormal(5, 5, 1, mulberry32(seed));
+      const svd = classicalSvd(A, 3);
+      const Asvd = reconstruct(svd.U, svd.sigma, svd.V);
+
+      const trainer = new SvdGradTrainer();
+      trainer.init(A, 3, 0.01, "cpu", mulberry32(seed ^ 0x9e3779b9));
+      for (let i = 0; i < 2000; i++) trainer.stepOnce();
+
+      const gd = trainer.snapshot(A);
+      const gap = frobeniusSq(sub(Asvd, reconstruct(gd.U, gd.sigma, gd.V)));
+      expect(gap / frobeniusSq(A)).toBeLessThan(1e-9);
+    }
   });
 
   it("preserves orthonormal U and V after QR-retracted steps", () => {

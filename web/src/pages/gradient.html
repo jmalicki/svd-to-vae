@@ -200,7 +200,12 @@
           replace $U$ and $V$ by the $Q$ factors from thin
           <a href="https://en.wikipedia.org/wiki/QR_decomposition" target="_blank" rel="noopener noreferrer">QR</a>
           so $U^{\top}U = I_k$ and $V^{\top}V = I_k$ exactly. Then $\sigma$ plays the role of
-          singular values. The step size is Adam-like but global: one scalar second moment
+          singular values. One subtlety: before stepping, the $U$ and $V$ gradients are
+          projected onto the directions that respect the constraint (the <em>tangent
+          space</em>) — using the raw gradient instead silently freezes a measurable
+          fraction of runs
+          (<a href="#appendix-tangent">why, with numbers</a>).
+          The step size is Adam-like but global: one scalar second moment
           of mean($g^{2}$) sets a shared $\eta_t$ for every entry — no per-parameter moment
           vectors
           (<a href="#appendix-adam">why not Adam</a>;
@@ -262,8 +267,8 @@
         <button id="reset" class="secondary" type="button">Reset</button>
       </div>
       <p class="help">Pause freezes training. Reset draws a new <code>A</code>, recomputes SVD, and re-inits GD.
-        The status line shows the run’s random seed; open <code>?seed=…</code> to replay a run
-        (e.g. one that stalls at a bad critical point).</p>
+        The status line shows the run’s random seed; open <code>?seed=…</code> to replay a
+        run exactly (same <code>A</code>, same init).</p>
       <div class="status" id="status">step 0</div>
     </div>
   </div>
@@ -371,11 +376,129 @@
       $$U \leftarrow \mathrm{qf}(U),\qquad V \leftarrow \mathrm{qf}(V)$$
     </div>
     <p class="theory-note">
-      Here $\mathrm{qf}(\cdot)$ is the $Q$ factor of a thin QR. This demo uses the Euclidean
-      gradient of reconstruction plus QR. Projecting the gradient onto the Stiefel tangent
-      space first is the Riemannian version; even then, the $(U,\sigma,V)$ gauge means
-      $\hat A=\hat A_{\mathrm{svd}}$ need not be a discrete fixed point unless you also
-      freeze or gauge-fix the factors.
+      Here $\mathrm{qf}(\cdot)$ is the $Q$ factor of a thin QR. Even with the tangent
+      projection below, the $(U,\sigma,V)$ gauge means $\hat A=\hat A_{\mathrm{svd}}$
+      need not be a discrete fixed point unless you also freeze or gauge-fix the factors.
+    </p>
+
+    <h3 id="appendix-tangent">Project the gradient before you retract</h3>
+    <p>
+      A retraction fixes where a step <em>lands</em>; it does not fix the step's
+      <em>direction</em>. The Euclidean gradient of $L_{\mathrm{recon}}$ at an orthonormal
+      $U$ has two parts: a component along the constraint surface (directions that keep
+      $U^{\top}U = I_k$ to first order — the tangent space) and a component pointing off it.
+      The picture below shows the two parts in the simplest case, where the constraint set
+      is a circle and the retraction is “renormalize”:
+    </p>
+    <figure class="ring-figure">
+      <img src="{{BASE_URL}}tangent-circle.svg" width="560" height="300"
+        alt="Unit circle with a point x, the raw gradient step split into a tangent component along the circle and a normal component off it, and the renormalize snap back onto the circle" />
+      <figcaption>
+        On $\mathrm{St}(2,1)$ — unit vectors in the plane — the retraction is
+        $x \mapsto x/\|x\|$. At $x$, the raw step $-\eta\nabla L$ (amber) splits into a
+        tangent part (blue, along the circle) and a normal part (vermillion, off it). The
+        snap undoes the normal part, so only the tangent part ever moves you toward the
+        solution — the normal part just distorts where the snap lands and pollutes the
+        RMS step-size estimate. In $\mathrm{St}(n,k)$ with $k>1$ the same “undo” also
+        re-mixes columns through Gram–Schmidt, and the composed move (step, then QR) can
+        point <em>uphill</em> even though $\nabla L$ pointed downhill.
+      </figcaption>
+    </figure>
+    <p>
+      This is not hypothetical. An earlier version of this demo fed the raw gradient to the
+      retraction, and a 300-seed sweep at the page defaults ($n=5$, $k=3$) froze
+      <strong>26 of 300 runs</strong>: the Armijo check (correctly) rejected every trial
+      step — the loss rose at every $\alpha$, linearly in $\alpha$, the signature of an
+      ascent direction — while the projected gradient still had norm $\sim 0.1$. The run
+      deadlocks mid-descent, parked 20–50% above the Eckart–Young floor at a point that is
+      not a critical point at all. Larger inits made it worse (65% frozen at init scale 3.0),
+      and no learning-rate change rescued it: with a bad direction there is no step
+      <em>size</em> that helps.
+    </p>
+    <p>
+      The fix is one line of linear algebra. Project the gradient onto the tangent space
+      before scaling and retracting:
+    </p>
+    <div class="math">
+      $$\mathrm{grad}\,L = G - U\,\mathrm{sym}(U^{\top}G),\qquad
+        \mathrm{sym}(M)=\tfrac{1}{2}(M+M^{\top})$$
+    </div>
+    <p>
+      where $G$ is the Euclidean gradient with respect to $U$ (same for $V$). This is
+      exactly the Riemannian gradient on the Stiefel manifold
+      <a href="https://doi.org/10.1137/S0895479895290954" target="_blank" rel="noopener noreferrer">(Edelman, Arias &amp; Smith 1998)</a>:
+      steepest descent <em>among the moves the constraint allows</em>. With it, the same
+      300 seeds give <strong>zero frozen runs</strong>, and every previously stuck seed
+      converges to the truncated SVD at machine precision.
+    </p>
+
+    <h3>Ablation: what the projection fixes vs what Armijo fixes</h3>
+    <p>
+      Like the <a href="#appendix-vfloor">$v^\dagger$-floor ablation</a>, this claim is
+      measured in the build, on a real formerly-frozen page run
+      (<code>?seed=1604623524</code> — you can replay it above). The figure toggles the
+      tangent projection and the Armijo line search independently; the build <em>fails</em>
+      if any curve stops behaving as described here. (The full
+      $\{\text{floor}\}\times\{\text{Armijo}\}\times\{\text{projection}\}$ cube is
+      measured; the floor changes nothing on this seed — the freeze is purely about
+      direction.)
+    </p>
+    <figure class="ring-figure">
+      <img src="{{BASE_URL}}freeze-tangent.svg" width="560" height="232"
+        alt="Measured log ‖Â_svd − Â_gd‖² on page seed 1604623524: raw gradient with Armijo freezes above the SVD gap; tangent-projected runs converge" />
+      <figcaption>
+        Measured Node run (<code>npm run gen:freeze</code>, a build prerequisite): same
+        $A$, same init as the browser run for <code>?seed=1604623524</code>; only the
+        tangent projection and the Armijo line search are toggled ($v^\dagger$ floor on
+        in all four). Every curve is $\|\hat A_{\mathrm{svd}}-\hat A_{\mathrm{gd}}\|_F^{2}$
+        (log scale).
+      </figcaption>
+    </figure>
+    <ul>
+      <li>
+        <strong>Amber, raw + Armijo (the old demo):</strong> the freeze. Around step 200
+        the composed update turns into an ascent direction; Armijo correctly vetoes every
+        trial from then on ($200$ of the last $200$ steps rejected) and the run parks at
+        $47\%$ relative gap forever. The veto and the bad direction interlock: neither
+        “more steps” nor “different $\eta_0$” helps.
+      </li>
+      <li>
+        <strong>Vermillion, raw without Armijo:</strong> no veto means no freeze — the
+        uphill steps are simply taken, the run blunders through the bad region, and around
+        step 3300 it actually touches the truncated SVD at machine precision. Then it gets
+        thrown back out. Near the solution the gradient signal drops to numerical noise, the
+        RMS denominator collapses toward its floor, the effective step $\eta_t$ balloons —
+        and with nothing checking the loss, those oversized steps kick the iterate off the
+        solution. It ends buzzing at a relative gap $\sim 10^{-3}$, and stays there.
+      </li>
+      <li>
+        <strong>Green, projected without Armijo:</strong> the same tail failure with a sound
+        direction. It dives straight to machine precision by step $\sim 1000$ (no excursion
+        — the direction fix works), then suffers the identical ejection and settles at the
+        same $\sim 10^{-3}$ noise plateau. Direction alone cannot make convergence
+        <em>stick</em>.
+      </li>
+      <li>
+        <strong>Blue, projected + Armijo (the live demo):</strong> converges to the
+        truncated SVD at machine precision ($\sim 10^{-16}$) and <em>stays</em>. Near the
+        solution Armijo rejects almost every proposed step (191 of the last 200 here) —
+        and that is exactly right: every one of those steps would have been an ejection
+        kick. Post-fix, a 300-seed sweep at these defaults has zero frozen runs.
+      </li>
+    </ul>
+    <p>
+      So yes — on this seed, removing Armijo <em>cures the freeze</em>, and that is worth
+      being honest about: the freeze was always an interlock between a bad direction and a
+      veto that was right about every individual step. But run either no-Armijo variant
+      longer and a 300-seed sweep makes the division of labor exact: <em>all 300</em>
+      no-Armijo runs (raw or projected) touch the solution and then get ejected to the
+      $\sim 10^{-3}$ plateau, while projection + Armijo holds machine precision on 292 of
+      300 (and is still descending on the rest, never frozen). The projection makes the
+      <em>direction</em> trustworthy, so descent reaches the solution; Armijo makes
+      convergence <em>permanent</em>, vetoing the noise-floor kicks that would otherwise
+      throw it back out; and the $v^\dagger$ floor bounds the step <em>length</em> along
+      the way. Remove any one and a distinct, measurable failure appears — the build
+      regenerates this figure and fails if any of these behaviors drifts.
     </p>
 
     <h3>Further reading</h3>
@@ -394,6 +517,20 @@
         <a href="https://doi.org/10.1137/100802529" target="_blank" rel="noopener noreferrer">Projection-like retractions on matrix manifolds</a>,
         <em>SIAM J. Optim.</em> 22(1), 2012
         (<a href="https://sites.uclouvain.be/absil/2010-038_retractions/retraction_25PA_UCL-INMA-2010-038-v2.pdf" target="_blank" rel="noopener noreferrer">PDF</a>).
+      </li>
+      <li>
+        Edelman, Arias &amp; Smith,
+        <a href="https://doi.org/10.1137/S0895479895290954" target="_blank" rel="noopener noreferrer">The geometry of algorithms with orthogonality constraints</a>,
+        <em>SIAM J. Matrix Anal. Appl.</em> 20(2), 1998
+        (<a href="https://arxiv.org/abs/physics/9806030" target="_blank" rel="noopener noreferrer">arXiv</a>)
+        — the canonical treatment of gradients on Stiefel; the
+        <a href="#appendix-tangent">tangent projection</a> is their Eq. (2.53).
+      </li>
+      <li>
+        Boumal,
+        <a href="https://www.nicolasboumal.net/book/" target="_blank" rel="noopener noreferrer"><em>An Introduction to Optimization on Smooth Manifolds</em></a>
+        (Cambridge, 2023; free PDF) — Riemannian gradient = tangent projection
+        (§3.6, §7.3), and line search with retractions (§4.3).
       </li>
       <li>
         <a href="https://en.wikipedia.org/wiki/Stiefel_manifold" target="_blank" rel="noopener noreferrer">Stiefel manifold</a>,
@@ -626,7 +763,10 @@
       The optimizer stacks two safeguards — the $v^{\dagger}$ floor and
       <a href="#appendix-vfloor-armijo">Armijo backtracking on the QR retract</a> — and they
       guard against <em>different</em> failures. The figure below runs the same problem four
-      ways, toggling each safeguard independently.
+      ways, toggling each safeguard independently. (To isolate these two levers, all four
+      runs here use the raw Euclidean gradient; the live demo additionally applies the
+      tangent projection, a third, independent safeguard against a different failure —
+      frozen runs — with <a href="#appendix-tangent">its own measured ablation</a>.)
     </p>
     <figure class="ring-figure">
       <img src="{{BASE_URL}}ringing-floor.svg" width="560" height="232"

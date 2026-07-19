@@ -29,8 +29,11 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - run: npm ci --ignore-scripts
       - run: npm test
-      # Bake artifacts + timing gate (same as prebuild; run once here for clear CI logs)
+      # Bake artifacts + measured-ablation gates (same as prebuild; run once here
+      # for clear CI logs). gen:ringing and gen:freeze fail the build if any
+      # documented optimizer failure mode stops reproducing.
       - run: npm run gen:ringing
+      - run: npm run gen:freeze
       - run: npm run gen:imm-pack
       - name: Build site
         run: npx tsc --noEmit && npx vite build

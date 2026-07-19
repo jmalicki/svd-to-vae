@@ -2,7 +2,9 @@ import { torch } from "js-pytorch";
 import {
   type Matrix,
   mat,
+  matmul,
   toNested,
+  transpose,
   fromTensorData,
   frobeniusSq,
   reconstruct,
@@ -29,6 +31,25 @@ export type GradState = {
   device: DeviceKind;
   /** Current adaptive step size (scalar; same for all parameters). */
   lr: number;
+  /** Diagnostics for the most recent stepOnce (absent before the first step). */
+  stepInfo?: StepInfo;
+};
+
+export type StepInfo = {
+  /** False when every trial raised the loss and the step was rejected. */
+  accepted: boolean;
+  /** Armijo/backtracking scale of the accepted step (1 = full step). */
+  alpha: number;
+  /** ‖g‖₂ over all trainable entries before the step. */
+  gradNorm: number;
+  /**
+   * Riemannian gradient norm: U/V grads projected onto the Stiefel tangent
+   * space (g − U·sym(Uᵀg)) plus the raw-σ grad. ≈0 at a genuine constrained
+   * critical point even when gradNorm is large (Euclidean grad ⟂ manifold).
+   */
+  tangentGradNorm: number;
+  /** Ltry − L0 for each backtracking trial α = 1, ½, ¼, … (diagnostics). */
+  trialDeltas: number[];
 };
 
 /** Adam-style second-moment EMA coefficient for the global scalar v. */
@@ -150,6 +171,7 @@ type Trainables = {
   k: number;
   step: number;
   device: DeviceKind;
+  lastStepInfo?: StepInfo;
 };
 
 /** Fully reduce (js-pytorch sum is one axis at a time). */
@@ -179,17 +201,30 @@ export class SvdGradTrainer {
     lr: number,
     device: DeviceKind,
     rand: () => number = Math.random,
+    opts: {
+      /** Std-dev of the random init (default 0.3, the page's behavior). */
+      initScale?: number;
+      /** Start from given factors instead of random (diagnostics/experiments). */
+      warmStart?: { U: Matrix; sigma: number[]; V: Matrix };
+    } = {},
   ): void {
     const m = A.rows;
     const n = A.cols;
     const k = Math.max(1, Math.min(rank, Math.min(m, n)));
+    const scale = opts.initScale ?? 0.3;
 
     const U = torch.randn([m, k], true, false, device) as unknown as AnyTensor;
     const rawSigma = torch.randn([k], true, false, device) as unknown as AnyTensor;
     const V = torch.randn([n, k], true, false, device) as unknown as AnyTensor;
-    fillNestedNormal(U.data, 0.3, rand);
-    fillNestedNormal(rawSigma.data, 0.3, rand);
-    fillNestedNormal(V.data, 0.3, rand);
+    if (opts.warmStart) {
+      writeIntoNested(U.data, opts.warmStart.U);
+      writeIntoNested(V.data, opts.warmStart.V);
+      writeVectorIntoNested(rawSigma.data, opts.warmStart.sigma.map(rawFromSigma));
+    } else {
+      fillNestedNormal(U.data, scale, rand);
+      fillNestedNormal(rawSigma.data, scale, rand);
+      fillNestedNormal(V.data, scale, rand);
+    }
     retractInPlace(U, m, k);
     retractInPlace(V, n, k);
 
@@ -229,6 +264,13 @@ export class SvdGradTrainer {
     const L0 = flatList(mse.data)[0] ?? Infinity;
 
     mse.backward();
+    // Project U/V grads onto the Stiefel tangent space (g ← g − X·sym(Xᵀg))
+    // before the RMS scale and the QR retraction. Without this, the normal
+    // component of the Euclidean gradient fights the retraction: the composed
+    // update can point uphill for every α, Armijo rejects forever, and ~8% of
+    // runs freeze mid-descent (measured over 300 seeds at n=5, k=3).
+    projectGradToTangent(t.U, t.m, t.k);
+    projectGradToTangent(t.V, t.n, t.k);
     const { lr, sumSq } = t.optimizer.adaptLr();
 
     const Amat = fromTensorData(t.A.data, t.m, t.n);
@@ -252,24 +294,28 @@ export class SvdGradTrainer {
       U: Matrix;
       V: Matrix;
       raw: number[];
+      alpha: number;
     } | null = null;
     let bestDescent: {
       U: Matrix;
       V: Matrix;
       raw: number[];
       L: number;
+      alpha: number;
     } | null = null;
 
+    const trialDeltas: number[] = [];
     for (let bt = 0; bt < ARMIJO_MAX_BT; bt++) {
       const Utry = thinQ(addScaled(U0, gU, -alpha * lr));
       const Vtry = thinQ(addScaled(V0, gV, -alpha * lr));
       const rawTry = raw0.map((r, i) => r - alpha * lr * (gRaw[i] ?? 0));
       const Ltry = mseFactors(Amat, Utry, rawTry, Vtry);
+      trialDeltas.push(Ltry - L0);
       if (bestDescent === null || Ltry < bestDescent.L) {
-        bestDescent = { U: Utry, V: Vtry, raw: rawTry, L: Ltry };
+        bestDescent = { U: Utry, V: Vtry, raw: rawTry, L: Ltry, alpha };
       }
       if (Ltry <= L0 + ARMIJO_C * alpha * dirDeriv) {
-        accepted = { U: Utry, V: Vtry, raw: rawTry };
+        accepted = { U: Utry, V: Vtry, raw: rawTry, alpha };
         break;
       }
       alpha *= 0.5;
@@ -286,10 +332,45 @@ export class SvdGradTrainer {
       writeIntoNested(t.V.data, accepted.V);
       writeVectorIntoNested(t.rawSigma.data, accepted.raw);
     }
+    const rawGradSq = gRaw.reduce((s, x) => s + x * x, 0);
+    t.lastStepInfo = {
+      accepted: accepted !== null,
+      alpha: accepted?.alpha ?? 0,
+      gradNorm: Math.sqrt(sumSq),
+      tangentGradNorm: Math.sqrt(
+        stiefelTangentSq(U0, gU) + stiefelTangentSq(V0, gV) + rawGradSq,
+      ),
+      trialDeltas,
+    };
     t.optimizer.zero_grad();
     t.step += 1;
 
     return this.readState();
+  }
+
+  /** Diagnostic access: current raw (pre-softplus) σ parameters, unsorted. */
+  rawSigmaValues(): number[] {
+    return this.t ? flatList(this.t.rawSigma.data) : [];
+  }
+
+  /** Diagnostic: add N(0, scale²) noise to U/V/raw and re-retract (kick out of a basin). */
+  perturb(scale: number, rand: () => number = Math.random): void {
+    const t = this.t;
+    if (!t) return;
+    const noise = (dst: unknown) => {
+      const flat = flatList(dst);
+      const bumped = flat.map((x) => {
+        const u = Math.max(1e-12, rand());
+        const v = rand();
+        return x + scale * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+      });
+      writeVectorIntoNestedDeep(dst, bumped);
+    };
+    noise(t.U.data);
+    noise(t.V.data);
+    noise(t.rawSigma.data);
+    retractInPlace(t.U, t.m, t.k);
+    retractInPlace(t.V, t.n, t.k);
   }
 
   snapshot(_A: Matrix): GradState {
@@ -317,8 +398,37 @@ export class SvdGradTrainer {
       rank: t.k,
       device: t.device,
       lr: t.optimizer.lr,
+      stepInfo: t.lastStepInfo,
     };
   }
+}
+
+/** g − X·sym(Xᵀg): the Riemannian gradient on the Stiefel manifold at X. */
+function stiefelTangent(X: Matrix, g: Matrix): Matrix {
+  const XtG = matmul(transpose(X), g); // k×k
+  const k = XtG.cols;
+  const sym = mat(k, k);
+  for (let i = 0; i < k; i++) {
+    for (let j = 0; j < k; j++) {
+      sym.data[i * k + j] =
+        0.5 * ((XtG.data[i * k + j] ?? 0) + (XtG.data[j * k + i] ?? 0));
+    }
+  }
+  return sub(g, matmul(X, sym));
+}
+
+/** ‖g − X·sym(Xᵀg)‖_F²: squared norm of g projected onto the Stiefel tangent at X. */
+function stiefelTangentSq(X: Matrix, g: Matrix): number {
+  return frobeniusSq(stiefelTangent(X, g));
+}
+
+/** Replace a factor tensor's autograd gradient with its tangent-space projection. */
+function projectGradToTangent(factor: AnyTensor, rows: number, cols: number): void {
+  const g = factor._grad;
+  if (!g) return;
+  const X = fromTensorData(factor.data, rows, cols);
+  const gMat = fromTensorData(g.data, rows, cols);
+  writeIntoNested(g.data, stiefelTangent(X, gMat));
 }
 
 /** Replace factor columns with thin-Q (Stiefel retraction). */
@@ -339,10 +449,30 @@ function softplusNum(x: number): number {
   return Math.log1p(Math.exp(-Math.abs(x))) + Math.max(x, 0);
 }
 
+/** Inverse softplus: raw such that softplus(raw) = σ (σ > 0). */
+function rawFromSigma(sigma: number): number {
+  const s = Math.max(sigma, 1e-12);
+  // ln(e^σ − 1) = σ + ln(1 − e^{−σ}), stable for both small and large σ.
+  return s + Math.log1p(-Math.exp(-s));
+}
+
 function mseFactors(A: Matrix, U: Matrix, raw: number[], V: Matrix): number {
   const sigma = raw.map(softplusNum);
   const Ahat = reconstruct(U, sigma, V);
   return frobeniusSq(sub(A, Ahat)) / (A.rows * A.cols);
+}
+
+/** Write a flat list of values back into an arbitrarily nested tensor buffer, in order. */
+function writeVectorIntoNestedDeep(data: unknown, values: number[]): void {
+  let idx = 0;
+  const walk = (x: unknown) => {
+    if (!Array.isArray(x)) return;
+    for (let i = 0; i < x.length; i++) {
+      if (typeof x[i] === "number") (x as number[])[i] = values[idx++]!;
+      else walk(x[i]);
+    }
+  };
+  walk(data);
 }
 
 /** Write a 1-D vector into js-pytorch 1-D nested tensor storage. */

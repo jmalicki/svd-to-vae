@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Geometry of the tangent projection on the simplest Stiefel manifold,
+  St(2,1) = the unit circle (retraction = renormalize).
+  Coordinates are computed for the loss L(x) = (1/2)|x - a|^2 with the circle
+  at C=(170,165), R=95, target a at angle -15 deg and distance 150 from C,
+  current point x at angle -105 deg, and an exaggerated step -0.8*grad(L).
+  The raw step decomposes exactly into its tangent and normal parts
+  (parallelogram guides shown). Referenced by the gradient page appendix;
+  edit alongside gradient.html.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 300" width="560" height="300"
+  role="img" aria-label="Unit circle with a point x, the raw gradient step decomposed into tangent and normal components, and the renormalize snap back to the circle">
+  <defs>
+    <marker id="arrAmber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#E69F00"/>
+    </marker>
+    <marker id="arrBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#0072B2"/>
+    </marker>
+    <marker id="arrVerm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#D55E00"/>
+    </marker>
+    <marker id="arrGray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8a8a8a"/>
+    </marker>
+  </defs>
+
+  <rect width="560" height="300" fill="#fafafa"/>
+
+  <!-- loss contours of L(x), centered at a; the innermost (r = 150-95)
+       touches the constraint circle exactly at the solution point -->
+  <circle cx="314.9" cy="126.2" r="55" fill="none" stroke="#cfcfcf" stroke-width="1" stroke-dasharray="4 3"/>
+  <circle cx="314.9" cy="126.2" r="95" fill="none" stroke="#d8d8d8" stroke-width="1" stroke-dasharray="4 3"/>
+  <circle cx="314.9" cy="126.2" r="135" fill="none" stroke="#e2e2e2" stroke-width="1" stroke-dasharray="4 3"/>
+  <circle cx="314.9" cy="126.2" r="2.5" fill="#8a8a8a"/>
+  <text x="322" y="122" fill="#8a8a8a" font-size="11" font-family="IBM Plex Mono, ui-monospace, monospace">a</text>
+  <text x="368" y="244" fill="#8a8a8a" font-size="11" font-family="DM Sans, system-ui, sans-serif">loss contours &#189;&#8214;x&#8722;a&#8214;&#178;</text>
+
+  <!-- constraint set: St(2,1), the unit circle -->
+  <circle cx="170" cy="165" r="95" fill="none" stroke="#2d2d2d" stroke-width="1.25"/>
+  <text x="62" y="285" fill="#2d2d2d" font-size="11" font-family="DM Sans, system-ui, sans-serif">St(2,1): the circle &#8214;x&#8214; = 1</text>
+
+  <!-- vector-addition guides: tangent part + normal part = raw step -->
+  <line x1="261.3" y1="42.1" x2="281" y2="115.6" stroke="#d8d8d8" stroke-width="1" stroke-dasharray="2 3"/>
+  <line x1="165.1" y1="146.7" x2="281" y2="115.6" stroke="#d8d8d8" stroke-width="1" stroke-dasharray="2 3"/>
+
+  <!-- raw step (amber) and its snap back to the circle -->
+  <line x1="145.4" y1="73.2" x2="281" y2="115.6" stroke="#E69F00" stroke-width="2" marker-end="url(#arrAmber)"/>
+  <line x1="281" y1="115.6" x2="259.5" y2="125.2" stroke="#8a8a8a" stroke-width="1.25" stroke-dasharray="3 3" marker-end="url(#arrGray)"/>
+  <text x="206" y="87" fill="#E69F00" font-size="11" font-family="DM Sans, system-ui, sans-serif"
+    text-anchor="middle" transform="rotate(17.4 206 92)">raw step &#8722;&#951;&#8711;L</text>
+
+  <!-- tangent part (blue): motion along the constraint set -->
+  <line x1="145.4" y1="73.2" x2="261.3" y2="42.1" stroke="#0072B2" stroke-width="2" marker-end="url(#arrBlue)"/>
+  <text x="268" y="40" fill="#0072B2" font-size="11" font-family="DM Sans, system-ui, sans-serif">tangent part (the projection keeps this)</text>
+  <text x="282" y="143" fill="#8a8a8a" font-size="10" font-family="DM Sans, system-ui, sans-serif">snap x/&#8214;x&#8214;</text>
+
+  <!-- normal part (vermillion): motion the snap undoes -->
+  <line x1="145.4" y1="73.2" x2="165.1" y2="146.7" stroke="#D55E00" stroke-width="2" stroke-dasharray="6 3" marker-end="url(#arrVerm)"/>
+  <text x="98" y="166" fill="#D55E00" font-size="11" font-family="DM Sans, system-ui, sans-serif">normal part</text>
+  <text x="76" y="180" fill="#8a8a8a" font-size="10" font-family="DM Sans, system-ui, sans-serif">(the snap undoes this)</text>
+
+  <!-- landing point of the snapped raw step -->
+  <circle cx="256.8" cy="126.4" r="3.5" fill="#E69F00"/>
+
+  <!-- current point and solution -->
+  <circle cx="145.4" cy="73.2" r="3.5" fill="#2d2d2d"/>
+  <text x="138" y="62" fill="#2d2d2d" font-size="11" font-family="DM Sans, system-ui, sans-serif" text-anchor="end">x</text>
+  <circle cx="261.8" cy="140.4" r="3.5" fill="#009E73"/>
+  <text x="272" y="166" fill="#009E73" font-size="11" font-family="DM Sans, system-ui, sans-serif">solution (min on the circle)</text>
+</svg>

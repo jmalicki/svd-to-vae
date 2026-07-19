@@ -44,7 +44,13 @@ npm install --ignore-scripts   # skip native `gl` compile if it fails
 npm run dev
 ```
 
-`predev` / `prebuild` run `npm run gen:ringing`, which trains a 2×2 ablation of global-RMS SGD ({v† floor on/off} × {Armijo on/off}), plots $\\|\\hat A_{\\mathrm{svd}}-\\hat A_{\\mathrm{gd}}\\|_F^{2}$ for all four runs, writes `public/ringing-floor.svg`, and **fails the build if the no-safeguard curve does not ring or the floor+Armijo curve fails to stay near the Eckart–Young gap**. They also run `npm run gen:imm-pack`, which warps the IMM faces and bakes SVD factors into `examples.bin` / `model.bin`, then **`npm run test:imm-pack` fails if unpacking those packs takes more than 3s** (guards against bringing runtime SVD back onto the page-load path). CI runs the same generators and timing check before `vite build`.
+`predev` / `prebuild` run two measured optimizer ablations (shared training loop in `scripts/ablation-lib.mjs`), then the face pack bake:
+
+- `npm run gen:ringing` — 2×2 over {v† floor on/off} × {Armijo on/off} on the raw gradient, writes `public/ringing-floor.svg`, and **fails the build if the no-safeguard curve does not ring or the floor+Armijo curve fails to stay near the Eckart–Young gap**.
+- `npm run gen:freeze` — the full {floor} × {Armijo} × {tangent projection} cube on the exact page run `?seed=1604623524` (a formerly frozen seed), writes `public/freeze-tangent.svg`, and **fails the build if any cell drifts from the documented behavior** (raw+Armijo freezes with every late step rejected; projection+Armijo converges to machine precision and stays; either no-Armijo variant touches the SVD but gets ejected back to a ~1e-3 noise plateau).
+- `npm run gen:imm-pack` — warps the IMM faces and bakes SVD factors into `examples.bin` / `model.bin`; **`npm run test:imm-pack` fails if unpacking those packs takes more than 3s** (guards against bringing runtime SVD back onto the page-load path).
+
+CI runs the same generators and timing check before `vite build`.
 
 ```bash
 cd web && npm test
